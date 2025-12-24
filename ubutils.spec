@@ -1,6 +1,6 @@
 Summary: Implementation of ubutils
 Name: ubutils
-Version: 1.0.1.rc1
+Version: 1.0.2
 Release: 1
 License: MIT
 URL: https://gitee.com/openeuler/ubutils
@@ -56,6 +56,9 @@ install -m 644 lsub.8 setub.8 $RPM_BUILD_ROOT%{_prefix}/share/man/man8
 rm -rf %{buildroot}
 
 %changelog
+* Wed Dec 24 2025 laz <lianzhe1@h-partners.com> - 1.0.2-1
+- Change lsub print format.
+
 * Tue Nov 4 2025 laz <lianzhe1@h-partners.com> - 1.0.1.rc1-1
 - Add ubutils document and fix setub write.
 
