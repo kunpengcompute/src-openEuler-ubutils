@@ -1,7 +1,7 @@
 Summary: Implementation of ubutils
 Name: ubutils
 Version: 1.0.2
-Release: 2
+Release: 3
 License: MIT
 URL: https://gitee.com/openeuler/ubutils
 Source0: %{name}.tar.gz
@@ -56,6 +56,9 @@ install -m 644 lsub.8 setub.8 $RPM_BUILD_ROOT%{_prefix}/share/man/man8
 rm -rf %{buildroot}
 
 %changelog
+* Tue Mar 10 2026 Jianquan Lin <linjianquan2@huawei.com> - 1.0.2-3
+- Revert "Delete mode number for FEC"
+
 * Sat Jan 31 2026 laz <lianzhe1@h-partners.com> - 1.0.2-2
 - Delete mode number for FEC
 
