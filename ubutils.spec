@@ -1,12 +1,13 @@
 Summary: Implementation of ubutils
 Name: ubutils
 Version: 1.0.2
-Release: 4
+Release: 5
 License: MIT
 URL: https://gitee.com/openeuler/ubutils
 Source0: %{name}.tar.gz
 
 Patch1: 0001-ub-ubutils-delete-mode-number-for-FEC.patch
+Patch2: 0002-ub-ubutils-bugfix-some-issues-for-ubutils.patch
 
 BuildRequires: cmake
 BuildRequires: gcc-c++
@@ -60,6 +61,9 @@ install -m 644 lsub.8 setub.8 $RPM_BUILD_ROOT%{_prefix}/share/man/man8
 rm -rf %{buildroot}
 
 %changelog
+* Fri Mar 20 2026 Jianquan Lin <linjianquan2@huawei.com> - 1.0.2-5
+- Change some code format
+
 * Tue Mar 10 2026 Jianquan Lin <linjianquan2@huawei.com> - 1.0.2-4
 - Resubmit "Delete mode number for FEC"
 
