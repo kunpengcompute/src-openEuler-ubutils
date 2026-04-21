@@ -1,0 +1,81 @@
+#!/usr/bin/make -f
+
+export DH_VERBOSE = 1
+export DEB_BUILD_MAINT_OPTIONS = hardening=+all
+
+SOURCE_TARBALL := $(CURDIR)/ubutils.tar.gz
+WORK_DIR := $(CURDIR)/debian/build-tree
+SRC_DIR := $(WORK_DIR)/ubutils
+BUILD_DIR := $(WORK_DIR)/build
+PKG_DIR := $(CURDIR)/debian/ubutils
+PATCHES := \
+	$(CURDIR)/0001-ub-ubutils-delete-mode-number-for-FEC.patch \
+	$(CURDIR)/0002-ub-ubutils-bugfix-some-issues-for-ubutils.patch
+BINARY_PKG := ubutils
+DIST_TAG := velinux
+
+%:
+	dh $@
+
+$(SRC_DIR)/.patched: $(SOURCE_TARBALL) $(PATCHES)
+	rm -rf $(WORK_DIR)
+	mkdir -p $(WORK_DIR)
+	tar -xzf $(SOURCE_TARBALL) -C $(WORK_DIR)
+	set -e; \
+	for patch in $(PATCHES); do \
+		patch -d $(SRC_DIR) -p1 < "$$patch"; \
+	done
+	touch $@
+
+override_dh_auto_configure: $(SRC_DIR)/.patched
+	cmake -Wno-dev -S $(SRC_DIR) -B $(BUILD_DIR) \
+		-DCMAKE_BUILD_TYPE=RelWithDebInfo \
+		-DCMAKE_INSTALL_PREFIX=/usr
+
+override_dh_auto_build:
+	cmake --build $(BUILD_DIR) --parallel
+	version="$$(dpkg-parsechangelog -S Version | sed 's/+.*//; s/-.*//')"; \
+	man_date="$$(LC_ALL=C date -u -d "$$(dpkg-parsechangelog -S Date)" '+%d %B %Y')"; \
+	sed \
+		-e "s/@TODAY@/$$man_date/" \
+		-e "s/@VERSION@/ubutils-$$version/" \
+		-e 's#@IDSDIR@#/usr/share/hwdata#' \
+		< $(SRC_DIR)/lsub.man > $(WORK_DIR)/lsub.8; \
+	sed \
+		-e "s/@TODAY@/$$man_date/" \
+		-e "s/@VERSION@/ubutils-$$version/" \
+		-e 's#@IDSDIR@#/usr/share/hwdata#' \
+		< $(SRC_DIR)/setub.man > $(WORK_DIR)/setub.8
+
+override_dh_auto_install:
+	install -D -m 0755 $(BUILD_DIR)/lsub/lsub $(PKG_DIR)/usr/bin/lsub
+	install -D -m 0755 $(BUILD_DIR)/setub/setub $(PKG_DIR)/usr/bin/setub
+	install -D -m 0644 $(SRC_DIR)/ub.ids $(PKG_DIR)/usr/share/hwdata/ub.ids
+	install -D -m 0644 $(WORK_DIR)/lsub.8 $(PKG_DIR)/usr/share/man/man8/lsub.8
+	install -D -m 0644 $(WORK_DIR)/setub.8 $(PKG_DIR)/usr/share/man/man8/setub.8
+
+override_dh_installdocs:
+	dh_installdocs -XREADME -XLICENSE
+	install -D -m 0644 $(SRC_DIR)/README.md $(PKG_DIR)/usr/share/doc/ubutils/README.md
+	install -D -m 0644 $(SRC_DIR)/LICENSE $(PKG_DIR)/usr/share/doc/ubutils/LICENSE
+
+override_dh_dwz:
+
+override_dh_strip:
+	dh_strip --no-automatic-dbgsym
+
+override_dh_builddeb:
+	dh_builddeb
+	deb_version="$$(dpkg-parsechangelog -S Version)"; \
+	base_version="$$(printf '%s\n' "$$deb_version" | sed 's/+.*//; s/-.*//')"; \
+	arch="$$(dpkg-architecture -qDEB_HOST_ARCH)"; \
+	standard_deb="$(CURDIR)/../$(BINARY_PKG)_$${deb_version}_$${arch}.deb"; \
+	velinux_deb="$(CURDIR)/../$(BINARY_PKG)_$${base_version}_$(DIST_TAG)_$${arch}.deb"; \
+	mv -f "$$standard_deb" "$$velinux_deb"; \
+	sed -i "s|$(BINARY_PKG)_$${deb_version}_$${arch}\\.deb|$(BINARY_PKG)_$${base_version}_$(DIST_TAG)_$${arch}.deb|g" \
+		$(CURDIR)/debian/files
+
+override_dh_auto_test:
+
+override_dh_auto_clean:
+	rm -rf $(WORK_DIR)
