@@ -1,0 +1,18 @@
+This repository is a packaging-focused source tree rather than an unpacked
+upstream project checkout.
+
+The Debian build flow in `debian/rules` does the following:
+
+  * unpack `ubutils.tar.gz` into `debian/build-tree/ubutils`
+  * apply the root-level openEuler patch files
+  * configure and build the extracted source with CMake
+  * stage `lsub`, `setub`, `ub.ids`, and generated man pages into the package
+
+To build a binary package on a Debian 12 arm64 host:
+
+  dpkg-buildpackage -us -uc -b
+
+The standard Debian artifact name remains available for tooling, and the build
+also emits a copy named like:
+
+  ubutils_1.0.2_velinux_arm64.deb

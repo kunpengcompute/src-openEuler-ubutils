@@ -1,0 +1,7 @@
+ubutils (1.0.2) bookworm; urgency=medium
+
+  * Add Debian packaging support for building a deb package from the
+    openEuler source archive.
+  * Emit an additional velinux-named deb artifact after package build.
+
+ -- Jianquan Lin <linjianquan2@huawei.com>  Tue, 21 Apr 2026 12:00:00 +0800
