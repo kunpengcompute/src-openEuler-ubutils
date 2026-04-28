@@ -1,7 +1,7 @@
 Summary: Implementation of ubutils
 Name: ubutils
 Version: 1.0.2
-Release: 3
+Release: 5
 License: MIT
 URL: https://gitee.com/openeuler/ubutils
 Source0: %{name}.tar.gz
@@ -56,6 +56,9 @@ install -m 644 lsub.8 setub.8 $RPM_BUILD_ROOT%{_prefix}/share/man/man8
 rm -rf %{buildroot}
 
 %changelog
+* Mon Apr 27 2026 Jianquan Lin <linjianquan2@huawei.com> - 1.0.2-5
+- Change ubutils release
+
 * Fri Mar 20 2026 laz <lianzhe1@h-partners.com> - 1.0.2-3
 - Change some code format
 
