@@ -1,10 +1,10 @@
 Summary: Implementation of ubutils
 Name: ubutils
 Version: 1.0.2
-Release: 3
+Release: 4
 License: MIT
 URL: https://gitee.com/openeuler/ubutils
-Source0: %{name}.tar.gz
+Source0: %{name}-%{version}.tar.gz
 
 BuildRequires: cmake
 BuildRequires: gcc-c++
@@ -27,7 +27,7 @@ This package is required to develop alternate clients for ubutils.
 Ubutils is the basic debug tool of ubus, including setub and lsub.
 
 %prep
-%setup -q -n ubutils
+%setup -q -n %{name}-%{version}
 
 %build
 rm -rf build
@@ -56,6 +56,9 @@ install -m 644 lsub.8 setub.8 $RPM_BUILD_ROOT%{_prefix}/share/man/man8
 rm -rf %{buildroot}
 
 %changelog
+* Wed May 20 2026 laz <lianzhe1@h-partners.com> - 1.0.2-4
+- Change source package name
+
 * Fri Mar 20 2026 laz <lianzhe1@h-partners.com> - 1.0.2-3
 - Change some code format
 
