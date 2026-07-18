@@ -1,0 +1,1461 @@
+From c3de47c0f011adb9aefeab34649e4b03ebf76406 Mon Sep 17 00:00:00 2001
+From: linjianquan <linjianquan2@huawei.com>
+Date: Fri, 20 Mar 2026 18:35:51 +0800
+Subject: [PATCH] ub:ubutils: bugfix some issues for ubutils
+
+driver inclusion
+category: bugfix
+bugzilla: https://atomgit.com/openeuler/ubutils/issues/5
+CVE: NA
+
+-----------------------------------------------------------
+
+bugfix some issues for ubutils
+
+Signed-off-by: Anzhe Li <lianzhe1@h-partners.com>
+---
+ ...utils-bugfix-some-issues-for-ubutils.patch | 767 ++++++++++++++++++
+ include/ubutils.h                             |   8 +-
+ lib/common.c                                  |   6 +-
+ lib/sysfs.c                                   |  67 +-
+ lsub/cfg0/basic.c                             |  10 +-
+ lsub/cfg1/cfg1.h                              |   4 +-
+ lsub/ids.c                                    |  32 +-
+ lsub/ls-route-tbl.c                           |  20 +-
+ lsub/ls-slice.c                               |   2 +-
+ lsub/lsub.h                                   |   4 +-
+ lsub/port/basic.c                             |   4 +-
+ ...ap14_eye_montior.c => cap14_eye_monitor.c} |   0
+ lsub/port/cap15_qdlws.c                       |   5 +-
+ lsub/port/cap1_link.c                         |   2 +-
+ setub/setub.c                                 |   9 +-
+ ub.ids                                        |   4 +
+ 16 files changed, 865 insertions(+), 79 deletions(-)
+ create mode 100644 0002-ub-ubutils-bugfix-some-issues-for-ubutils.patch
+ rename lsub/port/{cap14_eye_montior.c => cap14_eye_monitor.c} (100%)
+
+diff --git a/0002-ub-ubutils-bugfix-some-issues-for-ubutils.patch b/0002-ub-ubutils-bugfix-some-issues-for-ubutils.patch
+new file mode 100644
+index 0000000..1b382ba
+--- /dev/null
++++ b/0002-ub-ubutils-bugfix-some-issues-for-ubutils.patch
+@@ -0,0 +1,767 @@
++From 7ad66ebbee408441511a00c15d39e7f873e5a8a9 Mon Sep 17 00:00:00 2001
++From: Jianquan Lin <linjianquan2@huawei.com>
++Date: Fri, 13 Mar 2026 15:19:14 +0800
++Subject: [PATCH] ub:ubutils: bugfix some issues for ubutils
++
++driver inclusion
++category: bugfix
++bugzilla: https://atomgit.com/openeuler/ubutils/issues/5
++CVE: NA
++
++-----------------------------------------------------------
++
++bugfix some issues for ubutils
++
++Signed-off-by: Anzhe Li <lianzhe1@h-partners.com>
++---
++ include/ubutils.h                             |  8 +--
++ lib/common.c                                  |  6 +-
++ lib/sysfs.c                                   | 67 +++++++++++--------
++ lsub/CMakeLists.txt                           | 20 +++++-
++ lsub/cfg0/basic.c                             | 10 ++-
++ lsub/cfg1/cfg1.h                              |  4 +-
++ lsub/ids.c                                    | 32 ++++-----
++ lsub/ls-route-tbl.c                           | 20 +++---
++ lsub/ls-slice.c                               |  2 +-
++ lsub/lsub.h                                   |  4 +-
++ lsub/port/basic.c                             |  4 +-
++ ...ap14_eye_montior.c => cap14_eye_monitor.c} |  0
++ lsub/port/cap15_qdlws.c                       |  5 +-
++ lsub/port/cap1_link.c                         |  2 +-
++ setub/CMakeLists.txt                          | 20 +++++-
++ setub/setub.c                                 |  9 +--
++ ub.ids                                        |  4 ++
++ 17 files changed, 136 insertions(+), 81 deletions(-)
++ rename lsub/port/{cap14_eye_montior.c => cap14_eye_monitor.c} (100%)
++
++diff --git a/include/ubutils.h b/include/ubutils.h
++index 37f2f99..65a4d73 100644
++--- a/include/ubutils.h
+++++ b/include/ubutils.h
++@@ -42,7 +42,7 @@
++ #define HASH_SIZE 4099
++ #define HEX 16
++ 
++-#define min(a, b) ((a) < (b) ? (a) : (b))
+++#define MIN(a, b) ((a) < (b) ? (a) : (b))
++ 
++ struct id_entry {
++     struct id_entry *next;
++@@ -126,8 +126,8 @@ struct ub_access {
++ };
++ 
++ struct ub_methods {
++-    char *name;
++-    char *help;
+++    const char *name;
+++    const char *help;
++     void (*config)(struct ub_access *);
++     int (*detect)(struct ub_access *);
++     void (*init)(struct ub_access *);
++@@ -240,6 +240,7 @@ void show_topo(void);
++ void ub_free_ubc(void);
++ int ub_sel_access_methods(struct ub_access *uacc);
++ int ub_init(struct ub_access *uacc);
+++int ub_scan_devices(struct ub_access *uacc);
++ struct device *ub_scan_one_device(struct ub_entity *uent);
++ int ub_scan_uent(struct ub_access *uacc);
++ void ub_free_uent(struct ub_entity *uent);
++@@ -257,7 +258,6 @@ int ub_add_bi(struct ub_access *uacc, struct ub_bi *bi);
++ void show_bi_info(struct ub_access *uacc, struct lsub_cmd_param *ls_cmd);
++ int sysfs_get_bi(struct ub_access *uacc);
++ 
++-
++ extern struct ub_methods linux_sysfs;
++ 
++ #endif /* UBUTILS_H */
++diff --git a/lib/common.c b/lib/common.c
++index 4f0048b..2943ffb 100644
++--- a/lib/common.c
+++++ b/lib/common.c
++@@ -348,7 +348,7 @@ int ub_init(struct ub_access *uacc)
++ 
++     if (uacc->method) {
++         if (uacc->method >= UB_ACCESS_MAX || !g_ub_methods[uacc->method]) {
++-            uacc->error((char *)"This access method is not supported.");
+++            uacc->error("This access method is not supported.");
++             return -EINVAL;
++         }
++         uacc->methods = g_ub_methods[uacc->method];
++@@ -368,7 +368,7 @@ static void ub_free_params(struct ub_access *uacc)
++ {
++     struct ub_param *p;
++ 
++-    while (p = uacc->params) {
+++    while ((p = uacc->params)) {
++         uacc->params = p->next;
++         if (p->value_malloced) {
++             free(p->value);
++@@ -429,7 +429,7 @@ int ub_add_bi(struct ub_access *uacc, struct ub_bi *bi)
++         return -ENOMEM;
++     }
++ 
++-    (void)strncpy(new_bi->str, bi->str, UB_GUID_MAXLEN - 1);
+++    memcpy(new_bi->str, bi->str, UB_GUID_MAXLEN - 1);
++     new_bi->type = bi->type;
++     new_bi->eid = bi->eid;
++     new_bi->upi = bi->upi;
++diff --git a/lib/sysfs.c b/lib/sysfs.c
++index 318bcd8..089d228 100644
++--- a/lib/sysfs.c
+++++ b/lib/sysfs.c
++@@ -17,8 +17,8 @@
++ #include <dirent.h>
++ #include <ubutils.h>
++ 
++-static void ub_define_param(struct ub_access *uacc, const char *param,
++-                            const char *value, const char *help)
+++static void ub_define_param(struct ub_access *uacc, char *param,
+++                            char *value, char *help)
++ {
++     struct ub_param *p;
++ 
++@@ -28,10 +28,10 @@ static void ub_define_param(struct ub_access *uacc, const char *param,
++     }
++     *p = (struct ub_param) {
++         .next = uacc->params,
++-        .param = (char *)param,
++-        .value = (char *)value,
+++        .param = param,
+++        .value = value,
++         .value_malloced = 0,
++-        .help = (char *)help,
+++        .help = help,
++     };
++ 
++     uacc->params = p;
++@@ -68,7 +68,11 @@ static int sysfs_ub_detect(struct ub_access *uacc)
++ 
++ static void sysfs_ub_config(struct ub_access *uacc)
++ {
++-    ub_define_param(uacc, "sysfs.path", UB_PATH_SYS_BUS_UB, "Path to the sysfs device");
+++    static char sysfs_path[] = "sysfs.path";
+++    static char ub_sysfs_path[] = UB_PATH_SYS_BUS_UB;
+++    static char sysfs_device[] = "Path to the sysfs device";
+++
+++    ub_define_param(uacc, sysfs_path, ub_sysfs_path, sysfs_device);
++ }
++ 
++ static void sysfs_ub_init(struct ub_access *uacc)
++@@ -201,10 +205,15 @@ static int ub_parse_instance_sys(struct ub_access *uacc, FILE *file, unsigned in
++      }
++ 
++     /* Ignore the first line */
++-    (void)fgets(buf, (int)sizeof(buf), file);
+++    if (fgets(buf, (int)sizeof(buf), file) == NULL) {
+++        uacc->error("Failed to get information from instance");
+++        return -EIO;
+++    }
+++
++     while (i < cnt && fgets(buf, (int)sizeof(buf), file)) {
++         i++;
++-        if (sscanf(buf, "guid:%s type:%01x eid:%05x upi:%04x\n", bi.str, (uint32_t *)&bi.type, &bi.eid, (uint32_t *)&bi.upi) != UB_INSTANCE_PARA_NUM) {
+++        if (sscanf(buf, "guid:%s type:%01x eid:%05x upi:%04x\n",
+++                   bi.str, (uint32_t *)&bi.type, &bi.eid, (uint32_t *)&bi.upi) != UB_INSTANCE_PARA_NUM) {
++             uacc->error("Syntax error in %s", buf);
++             continue;
++         }
++@@ -303,18 +312,17 @@ int sysfs_get_direct_link(struct ub_entity *uent)
++     return ret;
++ }
++ 
++-static int sysfs_get_string(struct ub_entity *uent, const char *object, char *buf, int mandatory)
+++static int sysfs_get_string(struct ub_entity *uent, const char *object, char *buf)
++ {
++     struct ub_access *uacc = uent->access;
++-    void (*warn)(const char *msg, ...) = (mandatory ? uacc->error : uacc->warning);
++     char name[OBJNAMELEN] = {0};
++     long n;
++     int fd;
++ 
++     sysfs_obj_name(uent, object, name);
++     if ((fd = open(name, O_RDONLY)) < 0) {
++-        if (mandatory || errno != ENOENT)
++-            warn("Cannot open %s: %s", name, strerror(errno));
+++        if (errno != ENOENT)
+++            uacc->error("Cannot open %s: %s", name, strerror(errno));
++         return 0;
++     }
++ 
++@@ -324,16 +332,16 @@ static int sysfs_get_string(struct ub_entity *uent, const char *object, char *bu
++         return 1;
++     }
++ 
++-    warn("Error reading %s: %s", name, strerror(errno));
+++    uacc->error("Error reading %s: %s", name, strerror(errno));
++     close(fd);
++     return 0;
++ }
++ 
++-static unsigned int sysfs_get_value(struct ub_entity *uent, const char *object, int mandatory)
+++static unsigned int sysfs_get_value(struct ub_entity *uent, const char *object)
++ {
++     char buf[OBJBUFSIZE];
++ 
++-    if (sysfs_get_string(uent, object, buf, mandatory)) {
+++    if (sysfs_get_string(uent, object, buf)) {
++         return (unsigned int)strtol(buf, NULL, 0);
++     }
++ 
++@@ -347,7 +355,7 @@ static char *sysfs_get_link(struct ub_entity *uent, const char *link_name)
++ 
++     sysfs_obj_name(uent, link_name, path);
++ 
++-    if (readlink(path, r_path, sizeof(r_path)) < 0)
+++    if (readlink(path, r_path, sizeof(r_path) - 1) < 0)
++         return NULL;
++ 
++     sysfs_obj_name(uent, "", path);
++@@ -371,6 +379,7 @@ static void sysfs_ub_cleanup(struct ub_access *uacc)
++ 
++     if (uacc->free_id_name) {
++         free(uacc->id_file_name);
+++        uacc->id_file_name = NULL;
++         uacc->free_id_name = 0;
++     }
++ }
++@@ -394,14 +403,14 @@ static int ub_scan_attr_cfg(struct ub_entity *uent, uint32_t uent_num)
++         free(driver_path);
++     }
++ 
++-    uent->entity_type = (uint8_t)sysfs_get_value(uent, "type", 1);
++-    uent->ubc_uent_num = sysfs_get_value(uent, "ubc", 1);
++-    uent->vendor_id = sysfs_get_value(uent, "vendor", 1);
++-    uent->device_id = (uint16_t)sysfs_get_value(uent, "device", 1);
++-    uent->class_code = sysfs_get_value(uent, "class_code", 1);
++-    uent->entity_idx = sysfs_get_value(uent, "entity_idx", 1);
++-    uent->primary_entity = sysfs_get_value(uent, "primary_entity", 1);
++-    uent->bi_eid = sysfs_get_value(uent, "instance", 1);
+++    uent->entity_type = (uint8_t)sysfs_get_value(uent, "type");
+++    uent->ubc_uent_num = sysfs_get_value(uent, "ubc");
+++    uent->vendor_id = sysfs_get_value(uent, "vendor");
+++    uent->device_id = (uint16_t)sysfs_get_value(uent, "device");
+++    uent->class_code = sysfs_get_value(uent, "class_code");
+++    uent->entity_idx = sysfs_get_value(uent, "entity_idx");
+++    uent->primary_entity = sysfs_get_value(uent, "primary_entity");
+++    uent->bi_eid = sysfs_get_value(uent, "instance");
++     sysfs_get_if_mue(uent);
++     ub_link_dev(uent->access, uent); /* link uent in uacc */
++ 
++@@ -443,7 +452,7 @@ static int sysfs_ub_scan(struct ub_access *uacc)
++         uent = ub_alloc_uent(uacc);
++         if (!uent) {
++             ret = -ENOMEM;
++-            break;
+++            goto out_closedir;
++         }
++ 
++         ret = ub_scan_attr_cfg(uent, uent_num);
++@@ -452,7 +461,7 @@ static int sysfs_ub_scan(struct ub_access *uacc)
++             continue;
++         }
++     }
++-
+++out_closedir:
++     (void)closedir(dir);
++ 
++     return ret;
++@@ -535,7 +544,7 @@ static int sysfs_ub_read(struct ub_entity *uent, uint64_t pos, uint8_t *buf, int
++         return -EINVAL;
++     }
++ 
++-    if (len <= 0 || len > MAX_POSITION) {
+++    if (len <= 0 || pos > MAX_POSITION) {
++         return -EINVAL;
++     }
++ 
++@@ -549,7 +558,7 @@ static int sysfs_ub_read(struct ub_entity *uent, uint64_t pos, uint8_t *buf, int
++         return -ENOMEM;
++     }
++ 
++-    ret = (int)pread(fd, tmp, (size_t)len * (size_t)TMP_LEN_MULTI, pos);
+++    ret = (int)pread(fd, tmp, (size_t)len * (size_t)TMP_LEN_MULTI, (__off_t)pos);
++     if (ret < 0) {
++         uent->access->warning("uent %05x sysfs_ub_read: read failed: %s",
++             uent->uent_num, strerror(errno));
++@@ -584,7 +593,7 @@ static int sysfs_ub_write(struct ub_entity *uent, uint64_t pos, uint8_t *buf, in
++         return -EINVAL;
++     }
++ 
++-    ret = (int)pwrite(fd, buf, (size_t)len, pos);
+++    ret = (int)pwrite(fd, buf, (size_t)len, (__off_t)pos);
++     if (ret < 0 || ret != len) {
++         uent->access->warning("uent %05x sysfs_ub_write: write failed: %s",
++             uent->uent_num, strerror(errno));
++diff --git a/lsub/CMakeLists.txt b/lsub/CMakeLists.txt
++index 4060eb1..9edb946 100644
++--- a/lsub/CMakeLists.txt
+++++ b/lsub/CMakeLists.txt
++@@ -3,14 +3,32 @@
++ 
++ file(GLOB_RECURSE LSUB_SRC ./*.c ../lib/*.c)
++ add_executable(lsub ${LSUB_SRC})
+++
+++if(ENABLE_ASAN)
+++    message("lsub asan enable")
+++    set(CMAKE_C_FLAGS "-lasan -lm")
+++    set(CMAKE_LD_FLAGS "-fsanitize=adress -fsanitize=undefined")
+++endif()
+++
++ target_include_directories(lsub PRIVATE
++     ./
++     ../include)
++ target_link_directories(lsub PRIVATE ${CMAKE_INSTALL_PREFIX}/lib)
+++target_link_options(lsub PRIVATE
+++    -pie
+++)
++ install(TARGETS lsub RUNTIME OPTIONAL)
++ 
+++set(CMAKE_POSITION_INDEPENDENT_CODE ON)
+++set_target_properties(lsub PROPERTIES
+++        POSITION_INDEPENDENT_CODE ON
+++)
+++
++ set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Wall -Wuninitialized -Wno-error=format -Wundef -Wunused -Wdate-time -Wfloat-equal -Wshadow -Wvla \
++         -Wdisabled-optimization -Wempty-body -Wignored-qualifiers -Wimplicit-fallthrough=3 -Wtype-limits -Wshift-negative-value -Wswitch-default \
++         -Wframe-larger-than=8192 -Wshift-overflow=2 -Wwrite-strings -Wmissing-format-attribute -Wformat-nonliteral -Wduplicated-cond -Wtrampolines \
++         -Wlogical-op -Wsuggest-attribute=format -Wduplicated-branches -Wmissing-include-dirs -Wformat-signedness -Wmissing-declarations \
++-        -Wreturn-local-addr -Wredundant-decls -Wfloat-conversion -Wmissing-prototypes -Wstrict-prototypes")
++\ No newline at end of file
+++        -Wreturn-local-addr -Wredundant-decls -Wfloat-conversion -Wmissing-prototypes -Wstrict-prototypes \
+++        -std=gnu99 -fno-common -Wextra \
+++        -fstack-protector-strong -fstack-protector -fstack-protector-all -D_FORTIFY_SOURCE=2 -O2 -Wformat -Wformat-security -ftrapv \
+++        -Wl,-z,relro -Wl,-z,now -Wl,-z,noexecstack -Wl,--as-needed -Wl,--strip-all -fPIE")
++diff --git a/lsub/cfg0/basic.c b/lsub/cfg0/basic.c
++index 8bd17bd..9373105 100644
++--- a/lsub/cfg0/basic.c
+++++ b/lsub/cfg0/basic.c
++@@ -109,6 +109,7 @@ static void cfg0_guid(uint8_t *data)
++     uint8_t *guid_data;
++     uint16_t vendor_id;
++     uint64_t seq_num;
+++    uint32_t rsvd;
++ 
++     /**
++       * +-----------+-----------+---------+------+----------+-----------------+
++@@ -119,13 +120,14 @@ static void cfg0_guid(uint8_t *data)
++     guid_data = data;
++     seq_num = to_uint64(guid_data);
++     guid_data += CFG_QWORD_LEN;
+++    rsvd = (uint32_t)to_chunkbits(guid_data, CFG_BIT0, CFG_BIT23);
++     type = (uint8_t)to_chunkbits(guid_data, CFG_BIT24, CFG_BIT27);
++     version = (uint8_t)to_chunkbits(guid_data, CFG_BIT28, CFG_BIT31);
++     device_id = (uint16_t)to_chunkbits(guid_data, CFG_BIT32, CFG_BIT47);
++     vendor_id = (uint16_t)to_chunkbits(guid_data, CFG_BIT48, CFG_BIT63);
++ 
++-    sprintf(cfg0_info->display_buf, "\n\t\t\t\tGUID: %04x-%04x-%01x-%01x-000000-%016lx",
++-        vendor_id, device_id, version, type, seq_num);
+++    sprintf(cfg0_info->display_buf, "\n\t\t\t\tGUID: %04x-%04x-%01x-%01x-%06x-%016lx",
+++        vendor_id, device_id, version, type, rsvd, seq_num);
++ 
++     printf("%s", cfg0_info->display_buf);
++ }
++@@ -161,10 +163,6 @@ static void cfg0_ubfm_eid(uint8_t *data)
++ {
++     int off;
++ 
++-    if (!ub_is_primary(cfg0_info->uent)) {
++-        return;
++-    }
++-
++     off = sprintf(cfg0_info->display_buf, "\n\t\t\t\tUBFM EID: ");
++     (void)parse_eid(data, cfg0_info->display_buf + off);
++     printf("%s", cfg0_info->display_buf);
++diff --git a/lsub/cfg1/cfg1.h b/lsub/cfg1/cfg1.h
++index 29e2e99..43c6558 100644
++--- a/lsub/cfg1/cfg1.h
+++++ b/lsub/cfg1/cfg1.h
++@@ -7,8 +7,8 @@
++  *
++  */
++ 
++-#ifndef LSUB_CFG0_H
++-#define LSUB_CFG0_H
+++#ifndef LSUB_CFG1_H
+++#define LSUB_CFG1_H
++ 
++ #include "../lsub.h"
++ 
++diff --git a/lsub/ids.c b/lsub/ids.c
++index 2de0d9b..1e8dd13 100644
++--- a/lsub/ids.c
+++++ b/lsub/ids.c
++@@ -15,10 +15,10 @@
++ #include "lsub.h"
++ 
++ typedef FILE * ub_ids_file;
++-#define ub_ids_gets(file, line, size) fgets(line, size, file)
++-#define ub_ids_eof(file) feof(file)
++-#define ub_ids_open(uacc) fopen((uacc)->id_file_name, "r")
++-#define ub_ids_close(file) fclose(file)
+++#define UB_IDS_GETS(file, line, size) fgets(line, size, file)
+++#define UB_IDS_EOF(file) feof(file)
+++#define UB_IDS_OPEN(uacc) fopen((uacc)->id_file_name, "r")
+++#define UB_IDS_CLOSE(file) fclose(file)
++ #define UB_ERROR_MSG(file, err) \
++     do { if (!(err) && ferror(file)) (err) = "I/O error"; } while (0)
++ 
++@@ -124,12 +124,13 @@ static char *format_name_pair(char *buf, size_t size, struct ub_ids_name *n)
++     char class_part[MAX_NAME_LEN] = {};
++     char vendor_part[MAX_NAME_LEN] = {};
++     char device_part[MAX_NAME_LEN] = {};
+++    static char ub_ids_err[] = "<ub ids parse: buffer too small>";
++ 
++     if (n->base_name && n->sub_name) {
++         res = snprintf(class_part, sizeof(class_part), "%s %s ", n->sub_name, n->classnum_name);
++     } else if (n->base_name) {
++         res = snprintf(class_part, sizeof(class_part), "%s %s ", n->base_name, n->classnum_name);
++-    } else{
+++    } else {
++         res = snprintf(class_part, sizeof(class_part), "Class %s ", n->classnum_name);
++     }
++ 
++@@ -144,9 +145,8 @@ static char *format_name_pair(char *buf, size_t size, struct ub_ids_name *n)
++     }
++ 
++     res = snprintf(buf, size, "%s%s%s%s", class_part, vendor_part, device_part, n->numeric_name);
++-
++     if (res < 0 || (size_t)res >= size)
++-        return (char*)"<ub ids parse: buffer too small>";
+++        return ub_ids_err;
++ 
++     return buf;
++ }
++@@ -183,7 +183,7 @@ static int ub_id_insert(struct ub_access *uacc, struct ub_ids_id *ids_id,
++     uint32_t id56 = id_pair(ids_id->base_id, ids_id->sub_id);
++     unsigned int h = id_hash(ids_id->cat, id12, id34, id56);
++     struct id_entry *n = uacc->id_hash ? uacc->id_hash[h] : NULL;
++-    uint32_t len = strlen(text) + 1;
+++    uint32_t len = (uint32_t)strlen(text) + 1;
++ 
++     while (n && (n->id12 != id12 || n->id34 != id34 || n->id56 || n->cat != ids_id->cat))
++         n = n->next;
++@@ -382,7 +382,7 @@ static const char *ids_line_preprocess(char **ptr, char *line,
++     while (**ptr && **ptr != '\n' && **ptr != '\r')
++         (*ptr)++;
++ 
++-    if (!(**ptr) && !ub_ids_eof(ids_file))
+++    if (!(**ptr) && !UB_IDS_EOF(ids_file))
++         return "Line too long";
++     **ptr = 0;
++     if (*ptr > line && ((*ptr)[-1] == ' ' || (*ptr)[-1] == '\t'))
++@@ -418,7 +418,7 @@ static const char *id_parse_list(struct ub_access *uacc,
++     ids_id.cat = 0xffffffff;
++     ids_id.sub_id = SUB_CONFIG;
++     ids_id.vendor_id = ids_id.device_id = ids_id.subsys_vendor_id = ids_id.subsys_id = ids_id.base_id= 0;
++-    while (ub_ids_gets(ids_file, line, sizeof(line))) {
+++    while (UB_IDS_GETS(ids_file, line, sizeof(line))) {
++         (*line_no)++;
++         err = ids_line_preprocess(&p, line, ids_file, &continue_flag);
++         if (err)
++@@ -426,7 +426,7 @@ static const char *id_parse_list(struct ub_access *uacc,
++         if (continue_flag)
++             continue;
++ 
++-        nest = p - line;
+++        nest = (int)(p - line);
++         if (!nest) { /* Top-level entries */
++             err = ids_parse_top_level(uacc, &ids_id, &p, &continue_flag);
++             if (err)
++@@ -460,13 +460,14 @@ static const char *id_parse_list(struct ub_access *uacc,
++ 
++ static int ub_load_name_list(struct ub_access *uacc)
++ {
+++    static char default_ids_path[] = DEFAULT_IDS_PATH;
++     ub_ids_file ids_file;
++     int line_no;
++     const char *err;
++     char *real_file_name;
++ 
++     if (!uacc->id_file_name) {
++-        uacc->id_file_name = (char *)DEFAULT_IDS_PATH;
+++        uacc->id_file_name = default_ids_path;
++     } else {
++         real_file_name = realpath(uacc->id_file_name, NULL);
++         if (!real_file_name)
++@@ -476,12 +477,12 @@ static int ub_load_name_list(struct ub_access *uacc)
++         uacc->id_file_name = real_file_name;
++         uacc->free_id_name = 1;
++     }
++-    if (!(ids_file = ub_ids_open(uacc)))
+++    if (!(ids_file = UB_IDS_OPEN(uacc)))
++         return -1;
++ 
++     err = id_parse_list(uacc, ids_file, &line_no);
++     UB_ERROR_MSG(ids_file, err);
++-    ub_ids_close(ids_file);
+++    UB_IDS_CLOSE(ids_file);
++     if (err) {
++         uacc->error("%s at %s, line %d\n", err, uacc->id_file_name, line_no);
++         return -1;
++@@ -494,6 +495,7 @@ char *ub_lookup_name(struct ub_access *uacc, char *buf, size_t size,
++                      uint32_t vendor_id, uint32_t device_id, uint32_t class_id)
++ {
++     char *vendor_name, *device_name, *sub_name, *base_name;
+++    static char unknown[] = "Device";
++     struct ub_ids_name ids_name = {};
++     struct ub_ids_id ids_id = {};
++     char classbuf[16] = {};
++@@ -542,7 +544,7 @@ char *ub_lookup_name(struct ub_access *uacc, char *buf, size_t size,
++     ids_name.classnum_name = classbuf;
++     ids_name.sub_name = sub_name;
++     ids_name.base_name = base_name;
++-    ids_name.unknown = (char *)"Device";
+++    ids_name.unknown = unknown;
++     return format_name_pair(buf, size, &ids_name);
++ }
++ 
++diff --git a/lsub/ls-route-tbl.c b/lsub/ls-route-tbl.c
++index 3de4ada..837272a 100644
++--- a/lsub/ls-route-tbl.c
+++++ b/lsub/ls-route-tbl.c
++@@ -16,19 +16,19 @@
++ static void show_default_route_tbl(struct ub_entity *uent, uint16_t port_nums)
++ {
++     uint32_t *default_tlb;
++-    uint32_t ebw;
++     uint32_t ret;
++-    uint32_t i;
+++    int ebw;
+++    int i;
++ 
++-    ebw = ROUTE_TBL_ROUTE_TBL_EBW(port_nums);
++-    default_tlb = (uint32_t *)calloc(ebw, sizeof(uint32_t));
+++    ebw = (int)ROUTE_TBL_ROUTE_TBL_EBW(port_nums);
+++    default_tlb = (uint32_t *)calloc((size_t)ebw, (size_t)sizeof(uint32_t));
++     if (!default_tlb) {
++         printf("RouteTable Default table alloc failed.\n");
++         return;
++     }
++ 
++     ret = (uint32_t)ub_read_block(uent, ROUTE_TBL_SLICE + ROUTE_TBL_DEFAULT_ROUTE_TBL,
++-                                  (uint8_t *)default_tlb, sizeof(uint32_t) * ebw);
+++                                  (uint8_t *)default_tlb, (int)sizeof(uint32_t) * ebw);
++     if (ret) {
++         printf("RouteTable default table read failed.\n");
++         free(default_tlb);
++@@ -37,7 +37,7 @@ static void show_default_route_tbl(struct ub_entity *uent, uint16_t port_nums)
++ 
++     printf("Default RouteTable:\n");
++     for (i = 0; i < ebw; i++) {
++-        printf("\t\t[%04lx] %08x\n", i * sizeof(uint32_t), default_tlb[i]);
+++        printf("\t\t[%04x] %08x\n", (uint32_t)(i * (int)sizeof(uint32_t)), default_tlb[i]);
++     }
++     free(default_tlb);
++ }
++@@ -51,7 +51,8 @@ static void show_exact_route_tbl(struct ub_entity *uent, uint16_t port_nums,
++     uint32_t ret;
++     uint32_t ers;
++ 
++-    ret = (uint32_t)ub_read_block(uent, ROUTE_TBL_SLICE + ROUTE_TBL_EXACT_ROUTE_SUP,
+++    ret = (uint32_t)ub_read_block(uent, (uint64_t)(ROUTE_TBL_SLICE +
+++                                  ROUTE_TBL_EXACT_ROUTE_SUP),
++                                   (uint8_t *)&ers, sizeof(ers));
++     if (ret) {
++         printf("RouteTable exact table info read failed.\n");
++@@ -63,13 +64,14 @@ static void show_exact_route_tbl(struct ub_entity *uent, uint16_t port_nums,
++         return;
++     }
++ 
++-    ebw = ROUTE_TBL_ROUTE_TBL_EBW(port_nums);
+++    ebw = (uint32_t)ROUTE_TBL_ROUTE_TBL_EBW(port_nums);
++     exact_tlb = (uint32_t *)calloc(ebw, sizeof(uint32_t));
++     if (!exact_tlb) {
++         printf("RouteTable Exact table alloc failed.\n");
++         return;
++     }
++-    ret = (uint32_t)ub_read_block(uent, ROUTE_TBL_SLICE + ROUTE_TBL_ROUTE_TBL_ENTRY(port_nums, cna),
+++    ret = (uint32_t)ub_read_block(uent, ROUTE_TBL_SLICE +
+++                                  ROUTE_TBL_ROUTE_TBL_ENTRY(port_nums, cna),
++                                   (uint8_t *)exact_tlb, (int)(sizeof(uint32_t) * ebw));
++     if (ret) {
++         printf("RouteTable exact table entry read failed.\n");
++diff --git a/lsub/ls-slice.c b/lsub/ls-slice.c
++index 7491645..22accfb 100644
++--- a/lsub/ls-slice.c
+++++ b/lsub/ls-slice.c
++@@ -27,7 +27,7 @@ int slice_read(struct ub_entity *uent, uint32_t slice_addr, uint8_t *data_buf, u
++ 
++     /* read slice body */
++     slice_used_size = (uint32_t)to_chunkbits(slice_header, CFG_BIT4, CFG_BIT31);
++-    *data_len = min(slice_used_size * CFG_DWORD_LEN, *data_len);
+++    *data_len = MIN(slice_used_size * CFG_DWORD_LEN, *data_len);
++ 
++     ret_code = ub_read_block(uent, slice_addr, data_buf, (int)(*data_len));
++     if (ret_code) {
++diff --git a/lsub/lsub.h b/lsub/lsub.h
++index 78750af..51f3427 100644
++--- a/lsub/lsub.h
+++++ b/lsub/lsub.h
++@@ -155,9 +155,9 @@ enum {
++ #define ROUTE_TBL_NUM_OF_TLB_ENTRY          (0x1 * CFG_DWORD_LEN)
++ #define ROUTE_TBL_EXACT_ROUTE_SUP           (0x1 * CFG_DWORD_LEN + 2)
++ #define ROUTE_TBL_DEFAULT_ROUTE_TBL         (0x10 * CFG_DWORD_LEN)
++-#define ROUTE_TBL_ROUTE_TBL_EBW(port_nums)  ((((port_nums) - 1) >> 5) + 1)
+++#define ROUTE_TBL_ROUTE_TBL_EBW(port_nums)  ((((port_nums) - 1U) >> 5) + 1U)
++ #define ROUTE_TBL_ROUTE_TBL_ENTRY(port_nums, cna) \
++-    ((0x10 + (((cna) + 1) * ROUTE_TBL_ROUTE_TBL_EBW(port_nums))) * CFG_DWORD_LEN)
+++    ((0x10ULL + (((cna) + 1) * ROUTE_TBL_ROUTE_TBL_EBW(port_nums))) * CFG_DWORD_LEN)
++ 
++ /* eid has 128 bits */
++ #define CFG_EID_LEN             0x10
++diff --git a/lsub/port/basic.c b/lsub/port/basic.c
++index 6519385..fbf40b3 100644
++--- a/lsub/port/basic.c
+++++ b/lsub/port/basic.c
++@@ -105,6 +105,7 @@ static void port_basic_nb_info(uint8_t *data)
++     uint8_t *guid_data, *port_data;
++     uint8_t type, version;
++     uint64_t seq_num;
+++    uint32_t rsvd;
++ 
++     port_data = data;
++     port_index = (uint16_t)to_chunkbits(port_data, CFG_BIT0, CFG_BIT15);
++@@ -116,12 +117,13 @@ static void port_basic_nb_info(uint8_t *data)
++     guid_data = data + CFG_DWORD_LEN;
++     seq_num = to_uint64(guid_data);
++     guid_data += CFG_QWORD_LEN;
+++    rsvd = (uint32_t)to_chunkbits(guid_data, CFG_BIT0, CFG_BIT23);
++     type = (uint8_t)to_chunkbits(guid_data, CFG_BIT24, CFG_BIT27);
++     version = (uint8_t)to_chunkbits(guid_data, CFG_BIT28, CFG_BIT31);
++     device_id = (uint16_t)to_chunkbits(guid_data, CFG_BIT32, CFG_BIT47);
++     vendor_id = (uint16_t)to_chunkbits(guid_data, CFG_BIT48, CFG_BIT63);
++     sprintf(port_info->display_buf, "\n\t\t\t\t\tNeighbor_port_GUID: "
++-            "%04x-%04x-%01x-%01x-000000-%016lx", vendor_id, device_id, version, type, seq_num);
+++            "%04x-%04x-%01x-%01x-%06x-%016lx", vendor_id, device_id, version, type, rsvd, seq_num);
++     printf("%s", port_info->display_buf);
++ }
++ 
++diff --git a/lsub/port/cap14_eye_montior.c b/lsub/port/cap14_eye_monitor.c
++similarity index 100%
++rename from lsub/port/cap14_eye_montior.c
++rename to lsub/port/cap14_eye_monitor.c
++diff --git a/lsub/port/cap15_qdlws.c b/lsub/port/cap15_qdlws.c
++index 4722996..609b867 100644
++--- a/lsub/port/cap15_qdlws.c
+++++ b/lsub/port/cap15_qdlws.c
++@@ -21,13 +21,14 @@ void port_cap15_qdlws(uint8_t *data, uint32_t data_len)
++     int off;
++ 
++     static struct val_desc qdlws_desc[] = {
++-        { 0x0, "IDLE" },     { 0x1, "NAK" }, { 0x2, "In progress" }, { 0x3, "Timeout" }, { 0x4, "Successful Done" },
+++        { 0x0, "IDLE" }, { 0x1, "NAK" }, { 0x2, "In progress" }, { 0x3, "Timeout" }, { 0x4, "Successful Done" },
++         { INVALID_DESC, "" }
++     };
++ 
++     slice_ver = slice_get_version(data);
++     slice_size = slice_get_size(data);
++-    sprintf(port_info->display_buf, "\n\t\tPORT_CAP15_QDLWS: slice[0x%x, 0x%x] id[%u]", slice_ver, slice_size, port_cap_id);
+++    sprintf(port_info->display_buf, "\n\t\tPORT_CAP15_QDLWS: slice[0x%x, 0x%x] id[%u]",
+++            slice_ver, slice_size, port_cap_id);
++     printf("%s", port_info->display_buf);
++ 
++     if (slice_size < PQDLWS_LEN || data_len < PQDLWS_LEN) {
++diff --git a/lsub/port/cap1_link.c b/lsub/port/cap1_link.c
++index bc0a836..83aabda 100644
++--- a/lsub/port/cap1_link.c
+++++ b/lsub/port/cap1_link.c
++@@ -450,7 +450,7 @@ static void pl_phy_ctrl8_9(uint8_t *data)
++     uint8_t *cur_data;
++     uint64_t tmp0;
++     int off = 0;
++-    uint8_t i;
+++    int i;
++ 
++     cur_data = data + PL_PHY_CTRL8;
++     off = sprintf(port_info->display_buf, "\n\t\t\tPHY Link Control 8 and 9:");
++diff --git a/setub/CMakeLists.txt b/setub/CMakeLists.txt
++index 534d6ee..1f0eb81 100644
++--- a/setub/CMakeLists.txt
+++++ b/setub/CMakeLists.txt
++@@ -3,15 +3,33 @@
++ 
++ file(GLOB SETUB_SRC ./*.c ../lib/*.c)
++ add_executable(setub ${SETUB_SRC})
+++
+++if(ENABLE_ASAN)
+++    message("setub asan enable")
+++    set(CMAKE_C_FLAGS "-lasan -lm")
+++    set(CMAKE_LD_FLAGS "-fsanitize=adress -fsanitize=undefined")
+++endif()
+++
++ target_include_directories(setub PRIVATE
++     ./
++     ../include
++     ./kernel_headers)
++ target_link_directories(setub PRIVATE ${CMAKE_INSTALL_PREFIX}/lib)
+++target_link_options(setub PRIVATE
+++    -pie
+++)
++ install(TARGETS setub RUNTIME OPTIONAL)
++ 
+++set(CMAKE_POSITION_INDEPENDENT_CODE ON)
+++set_target_properties(setub PROPERTIES
+++        POSITION_INDEPENDENT_CODE ON
+++)
+++
++ set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Wall -Wuninitialized -Wno-error=format -Wundef -Wunused -Wdate-time -Wfloat-equal -Wshadow -Wvla \
++         -Wdisabled-optimization -Wempty-body -Wignored-qualifiers -Wimplicit-fallthrough=3 -Wtype-limits -Wshift-negative-value -Wswitch-default \
++         -Wframe-larger-than=8192 -Wshift-overflow=2 -Wwrite-strings -Wmissing-format-attribute -Wformat-nonliteral -Wduplicated-cond -Wtrampolines \
++         -Wlogical-op -Wsuggest-attribute=format -Wduplicated-branches -Wmissing-include-dirs -Wformat-signedness -Wmissing-declarations \
++-        -Wreturn-local-addr -Wredundant-decls -Wfloat-conversion -Wmissing-prototypes -Wstrict-prototypes")
++\ No newline at end of file
+++        -Wreturn-local-addr -Wredundant-decls -Wfloat-conversion -Wmissing-prototypes -Wstrict-prototypes \
+++        -std=gnu99 -fno-common -Wextra \
+++        -fstack-protector-strong -fstack-protector -fstack-protector-all -D_FORTIFY_SOURCE=2 -O2 -Wformat -Wformat-security -ftrapv \
+++        -Wl,-z,relro -Wl,-z,now -Wl,-z,noexecstack -Wl,--as-needed -Wl,--strip-all -fPIE")
++diff --git a/setub/setub.c b/setub/setub.c
++index 7630fdb..cc01b71 100644
++--- a/setub/setub.c
+++++ b/setub/setub.c
++@@ -398,14 +398,15 @@ static int parse_guid(char *c, struct ub_guid *guid)
++ 
++ #define TYPE_MASK 0xf
++ #define VERSION_MASK 0xf
+++#define RSV_MASK 0xffffff
++     guid->bits.vendor = (uint16_t)vendor;
++     guid->bits.device = (uint16_t)device;
++     guid->bits.type = type & TYPE_MASK;
++     guid->bits.version = version & VERSION_MASK;
++-    guid->bits.rsvd0 = (uint32_t)rsv0;
+++    guid->bits.rsvd0 = rsv0 & RSV_MASK;
++     guid->bits.seq_num = seq_num;
++ 
++-    (void)printf("guid_h: %016llx guid_l: %016llx\n", guid->datas.guid_h, guid->datas.guid_l);
+++    (void)printf("guid_h: 0x%016llx guid_l: 0x%016llx\n", guid->datas.guid_h, guid->datas.guid_l);
++ 
++     return 0;
++ }
++@@ -594,8 +595,8 @@ int main(int argc, char **argv)
++     int ret;
++ 
++     if (argc == 2 && !strcmp(argv[1], "--version")) {
++-    	puts("setub version "UBUTILS_VERSION);
++-	return 0;
+++        puts("setub version "UBUTILS_VERSION);
+++        return 0;
++     }
++ 
++     uacc = ub_alloc_acc();
++diff --git a/ub.ids b/ub.ids
++index 4f1e8f4..76aa615 100644
++--- a/ub.ids
+++++ b/ub.ids
++@@ -25,6 +25,10 @@ cc08  Huawei Technologies Co., Ltd.
++ 	d808  CCU management ub entity
++ 	d809  CCU ub entity
++ 	d80a  Bus controller
+++	d80b  URMA UBoE management ub entity
+++	d80c  URMA UBoE ub entity
+++	8200  SP500U Family management ub entity
+++	8201  SP500U Family ub entity
++ C 00  Bus controller
++ 	00  UB bus controller
++ C 01  Memory controller
++-- 
++2.34.1
++
+diff --git a/include/ubutils.h b/include/ubutils.h
+index 37f2f99..65a4d73 100644
+--- a/include/ubutils.h
++++ b/include/ubutils.h
+@@ -42,7 +42,7 @@
+ #define HASH_SIZE 4099
+ #define HEX 16
+ 
+-#define min(a, b) ((a) < (b) ? (a) : (b))
++#define MIN(a, b) ((a) < (b) ? (a) : (b))
+ 
+ struct id_entry {
+     struct id_entry *next;
+@@ -126,8 +126,8 @@ struct ub_access {
+ };
+ 
+ struct ub_methods {
+-    char *name;
+-    char *help;
++    const char *name;
++    const char *help;
+     void (*config)(struct ub_access *);
+     int (*detect)(struct ub_access *);
+     void (*init)(struct ub_access *);
+@@ -240,6 +240,7 @@ void show_topo(void);
+ void ub_free_ubc(void);
+ int ub_sel_access_methods(struct ub_access *uacc);
+ int ub_init(struct ub_access *uacc);
++int ub_scan_devices(struct ub_access *uacc);
+ struct device *ub_scan_one_device(struct ub_entity *uent);
+ int ub_scan_uent(struct ub_access *uacc);
+ void ub_free_uent(struct ub_entity *uent);
+@@ -257,7 +258,6 @@ int ub_add_bi(struct ub_access *uacc, struct ub_bi *bi);
+ void show_bi_info(struct ub_access *uacc, struct lsub_cmd_param *ls_cmd);
+ int sysfs_get_bi(struct ub_access *uacc);
+ 
+-
+ extern struct ub_methods linux_sysfs;
+ 
+ #endif /* UBUTILS_H */
+diff --git a/lib/common.c b/lib/common.c
+index 4f0048b..2943ffb 100644
+--- a/lib/common.c
++++ b/lib/common.c
+@@ -348,7 +348,7 @@ int ub_init(struct ub_access *uacc)
+ 
+     if (uacc->method) {
+         if (uacc->method >= UB_ACCESS_MAX || !g_ub_methods[uacc->method]) {
+-            uacc->error((char *)"This access method is not supported.");
++            uacc->error("This access method is not supported.");
+             return -EINVAL;
+         }
+         uacc->methods = g_ub_methods[uacc->method];
+@@ -368,7 +368,7 @@ static void ub_free_params(struct ub_access *uacc)
+ {
+     struct ub_param *p;
+ 
+-    while (p = uacc->params) {
++    while ((p = uacc->params)) {
+         uacc->params = p->next;
+         if (p->value_malloced) {
+             free(p->value);
+@@ -429,7 +429,7 @@ int ub_add_bi(struct ub_access *uacc, struct ub_bi *bi)
+         return -ENOMEM;
+     }
+ 
+-    (void)strncpy(new_bi->str, bi->str, UB_GUID_MAXLEN - 1);
++    memcpy(new_bi->str, bi->str, UB_GUID_MAXLEN - 1);
+     new_bi->type = bi->type;
+     new_bi->eid = bi->eid;
+     new_bi->upi = bi->upi;
+diff --git a/lib/sysfs.c b/lib/sysfs.c
+index 318bcd8..089d228 100644
+--- a/lib/sysfs.c
++++ b/lib/sysfs.c
+@@ -17,8 +17,8 @@
+ #include <dirent.h>
+ #include <ubutils.h>
+ 
+-static void ub_define_param(struct ub_access *uacc, const char *param,
+-                            const char *value, const char *help)
++static void ub_define_param(struct ub_access *uacc, char *param,
++                            char *value, char *help)
+ {
+     struct ub_param *p;
+ 
+@@ -28,10 +28,10 @@ static void ub_define_param(struct ub_access *uacc, const char *param,
+     }
+     *p = (struct ub_param) {
+         .next = uacc->params,
+-        .param = (char *)param,
+-        .value = (char *)value,
++        .param = param,
++        .value = value,
+         .value_malloced = 0,
+-        .help = (char *)help,
++        .help = help,
+     };
+ 
+     uacc->params = p;
+@@ -68,7 +68,11 @@ static int sysfs_ub_detect(struct ub_access *uacc)
+ 
+ static void sysfs_ub_config(struct ub_access *uacc)
+ {
+-    ub_define_param(uacc, "sysfs.path", UB_PATH_SYS_BUS_UB, "Path to the sysfs device");
++    static char sysfs_path[] = "sysfs.path";
++    static char ub_sysfs_path[] = UB_PATH_SYS_BUS_UB;
++    static char sysfs_device[] = "Path to the sysfs device";
++
++    ub_define_param(uacc, sysfs_path, ub_sysfs_path, sysfs_device);
+ }
+ 
+ static void sysfs_ub_init(struct ub_access *uacc)
+@@ -201,10 +205,15 @@ static int ub_parse_instance_sys(struct ub_access *uacc, FILE *file, unsigned in
+      }
+ 
+     /* Ignore the first line */
+-    (void)fgets(buf, (int)sizeof(buf), file);
++    if (fgets(buf, (int)sizeof(buf), file) == NULL) {
++        uacc->error("Failed to get information from instance");
++        return -EIO;
++    }
++
+     while (i < cnt && fgets(buf, (int)sizeof(buf), file)) {
+         i++;
+-        if (sscanf(buf, "guid:%s type:%01x eid:%05x upi:%04x\n", bi.str, (uint32_t *)&bi.type, &bi.eid, (uint32_t *)&bi.upi) != UB_INSTANCE_PARA_NUM) {
++        if (sscanf(buf, "guid:%s type:%01x eid:%05x upi:%04x\n",
++                   bi.str, (uint32_t *)&bi.type, &bi.eid, (uint32_t *)&bi.upi) != UB_INSTANCE_PARA_NUM) {
+             uacc->error("Syntax error in %s", buf);
+             continue;
+         }
+@@ -303,18 +312,17 @@ int sysfs_get_direct_link(struct ub_entity *uent)
+     return ret;
+ }
+ 
+-static int sysfs_get_string(struct ub_entity *uent, const char *object, char *buf, int mandatory)
++static int sysfs_get_string(struct ub_entity *uent, const char *object, char *buf)
+ {
+     struct ub_access *uacc = uent->access;
+-    void (*warn)(const char *msg, ...) = (mandatory ? uacc->error : uacc->warning);
+     char name[OBJNAMELEN] = {0};
+     long n;
+     int fd;
+ 
+     sysfs_obj_name(uent, object, name);
+     if ((fd = open(name, O_RDONLY)) < 0) {
+-        if (mandatory || errno != ENOENT)
+-            warn("Cannot open %s: %s", name, strerror(errno));
++        if (errno != ENOENT)
++            uacc->error("Cannot open %s: %s", name, strerror(errno));
+         return 0;
+     }
+ 
+@@ -324,16 +332,16 @@ static int sysfs_get_string(struct ub_entity *uent, const char *object, char *bu
+         return 1;
+     }
+ 
+-    warn("Error reading %s: %s", name, strerror(errno));
++    uacc->error("Error reading %s: %s", name, strerror(errno));
+     close(fd);
+     return 0;
+ }
+ 
+-static unsigned int sysfs_get_value(struct ub_entity *uent, const char *object, int mandatory)
++static unsigned int sysfs_get_value(struct ub_entity *uent, const char *object)
+ {
+     char buf[OBJBUFSIZE];
+ 
+-    if (sysfs_get_string(uent, object, buf, mandatory)) {
++    if (sysfs_get_string(uent, object, buf)) {
+         return (unsigned int)strtol(buf, NULL, 0);
+     }
+ 
+@@ -347,7 +355,7 @@ static char *sysfs_get_link(struct ub_entity *uent, const char *link_name)
+ 
+     sysfs_obj_name(uent, link_name, path);
+ 
+-    if (readlink(path, r_path, sizeof(r_path)) < 0)
++    if (readlink(path, r_path, sizeof(r_path) - 1) < 0)
+         return NULL;
+ 
+     sysfs_obj_name(uent, "", path);
+@@ -371,6 +379,7 @@ static void sysfs_ub_cleanup(struct ub_access *uacc)
+ 
+     if (uacc->free_id_name) {
+         free(uacc->id_file_name);
++        uacc->id_file_name = NULL;
+         uacc->free_id_name = 0;
+     }
+ }
+@@ -394,14 +403,14 @@ static int ub_scan_attr_cfg(struct ub_entity *uent, uint32_t uent_num)
+         free(driver_path);
+     }
+ 
+-    uent->entity_type = (uint8_t)sysfs_get_value(uent, "type", 1);
+-    uent->ubc_uent_num = sysfs_get_value(uent, "ubc", 1);
+-    uent->vendor_id = sysfs_get_value(uent, "vendor", 1);
+-    uent->device_id = (uint16_t)sysfs_get_value(uent, "device", 1);
+-    uent->class_code = sysfs_get_value(uent, "class_code", 1);
+-    uent->entity_idx = sysfs_get_value(uent, "entity_idx", 1);
+-    uent->primary_entity = sysfs_get_value(uent, "primary_entity", 1);
+-    uent->bi_eid = sysfs_get_value(uent, "instance", 1);
++    uent->entity_type = (uint8_t)sysfs_get_value(uent, "type");
++    uent->ubc_uent_num = sysfs_get_value(uent, "ubc");
++    uent->vendor_id = sysfs_get_value(uent, "vendor");
++    uent->device_id = (uint16_t)sysfs_get_value(uent, "device");
++    uent->class_code = sysfs_get_value(uent, "class_code");
++    uent->entity_idx = sysfs_get_value(uent, "entity_idx");
++    uent->primary_entity = sysfs_get_value(uent, "primary_entity");
++    uent->bi_eid = sysfs_get_value(uent, "instance");
+     sysfs_get_if_mue(uent);
+     ub_link_dev(uent->access, uent); /* link uent in uacc */
+ 
+@@ -443,7 +452,7 @@ static int sysfs_ub_scan(struct ub_access *uacc)
+         uent = ub_alloc_uent(uacc);
+         if (!uent) {
+             ret = -ENOMEM;
+-            break;
++            goto out_closedir;
+         }
+ 
+         ret = ub_scan_attr_cfg(uent, uent_num);
+@@ -452,7 +461,7 @@ static int sysfs_ub_scan(struct ub_access *uacc)
+             continue;
+         }
+     }
+-
++out_closedir:
+     (void)closedir(dir);
+ 
+     return ret;
+@@ -535,7 +544,7 @@ static int sysfs_ub_read(struct ub_entity *uent, uint64_t pos, uint8_t *buf, int
+         return -EINVAL;
+     }
+ 
+-    if (len <= 0 || len > MAX_POSITION) {
++    if (len <= 0 || pos > MAX_POSITION) {
+         return -EINVAL;
+     }
+ 
+@@ -549,7 +558,7 @@ static int sysfs_ub_read(struct ub_entity *uent, uint64_t pos, uint8_t *buf, int
+         return -ENOMEM;
+     }
+ 
+-    ret = (int)pread(fd, tmp, (size_t)len * (size_t)TMP_LEN_MULTI, pos);
++    ret = (int)pread(fd, tmp, (size_t)len * (size_t)TMP_LEN_MULTI, (__off_t)pos);
+     if (ret < 0) {
+         uent->access->warning("uent %05x sysfs_ub_read: read failed: %s",
+             uent->uent_num, strerror(errno));
+@@ -584,7 +593,7 @@ static int sysfs_ub_write(struct ub_entity *uent, uint64_t pos, uint8_t *buf, in
+         return -EINVAL;
+     }
+ 
+-    ret = (int)pwrite(fd, buf, (size_t)len, pos);
++    ret = (int)pwrite(fd, buf, (size_t)len, (__off_t)pos);
+     if (ret < 0 || ret != len) {
+         uent->access->warning("uent %05x sysfs_ub_write: write failed: %s",
+             uent->uent_num, strerror(errno));
+diff --git a/lsub/cfg0/basic.c b/lsub/cfg0/basic.c
+index 8bd17bd..9373105 100644
+--- a/lsub/cfg0/basic.c
++++ b/lsub/cfg0/basic.c
+@@ -109,6 +109,7 @@ static void cfg0_guid(uint8_t *data)
+     uint8_t *guid_data;
+     uint16_t vendor_id;
+     uint64_t seq_num;
++    uint32_t rsvd;
+ 
+     /**
+       * +-----------+-----------+---------+------+----------+-----------------+
+@@ -119,13 +120,14 @@ static void cfg0_guid(uint8_t *data)
+     guid_data = data;
+     seq_num = to_uint64(guid_data);
+     guid_data += CFG_QWORD_LEN;
++    rsvd = (uint32_t)to_chunkbits(guid_data, CFG_BIT0, CFG_BIT23);
+     type = (uint8_t)to_chunkbits(guid_data, CFG_BIT24, CFG_BIT27);
+     version = (uint8_t)to_chunkbits(guid_data, CFG_BIT28, CFG_BIT31);
+     device_id = (uint16_t)to_chunkbits(guid_data, CFG_BIT32, CFG_BIT47);
+     vendor_id = (uint16_t)to_chunkbits(guid_data, CFG_BIT48, CFG_BIT63);
+ 
+-    sprintf(cfg0_info->display_buf, "\n\t\t\t\tGUID: %04x-%04x-%01x-%01x-000000-%016lx",
+-        vendor_id, device_id, version, type, seq_num);
++    sprintf(cfg0_info->display_buf, "\n\t\t\t\tGUID: %04x-%04x-%01x-%01x-%06x-%016lx",
++        vendor_id, device_id, version, type, rsvd, seq_num);
+ 
+     printf("%s", cfg0_info->display_buf);
+ }
+@@ -161,10 +163,6 @@ static void cfg0_ubfm_eid(uint8_t *data)
+ {
+     int off;
+ 
+-    if (!ub_is_primary(cfg0_info->uent)) {
+-        return;
+-    }
+-
+     off = sprintf(cfg0_info->display_buf, "\n\t\t\t\tUBFM EID: ");
+     (void)parse_eid(data, cfg0_info->display_buf + off);
+     printf("%s", cfg0_info->display_buf);
+diff --git a/lsub/cfg1/cfg1.h b/lsub/cfg1/cfg1.h
+index 29e2e99..43c6558 100644
+--- a/lsub/cfg1/cfg1.h
++++ b/lsub/cfg1/cfg1.h
+@@ -7,8 +7,8 @@
+  *
+  */
+ 
+-#ifndef LSUB_CFG0_H
+-#define LSUB_CFG0_H
++#ifndef LSUB_CFG1_H
++#define LSUB_CFG1_H
+ 
+ #include "../lsub.h"
+ 
+diff --git a/lsub/ids.c b/lsub/ids.c
+index 2de0d9b..1e8dd13 100644
+--- a/lsub/ids.c
++++ b/lsub/ids.c
+@@ -15,10 +15,10 @@
+ #include "lsub.h"
+ 
+ typedef FILE * ub_ids_file;
+-#define ub_ids_gets(file, line, size) fgets(line, size, file)
+-#define ub_ids_eof(file) feof(file)
+-#define ub_ids_open(uacc) fopen((uacc)->id_file_name, "r")
+-#define ub_ids_close(file) fclose(file)
++#define UB_IDS_GETS(file, line, size) fgets(line, size, file)
++#define UB_IDS_EOF(file) feof(file)
++#define UB_IDS_OPEN(uacc) fopen((uacc)->id_file_name, "r")
++#define UB_IDS_CLOSE(file) fclose(file)
+ #define UB_ERROR_MSG(file, err) \
+     do { if (!(err) && ferror(file)) (err) = "I/O error"; } while (0)
+ 
+@@ -124,12 +124,13 @@ static char *format_name_pair(char *buf, size_t size, struct ub_ids_name *n)
+     char class_part[MAX_NAME_LEN] = {};
+     char vendor_part[MAX_NAME_LEN] = {};
+     char device_part[MAX_NAME_LEN] = {};
++    static char ub_ids_err[] = "<ub ids parse: buffer too small>";
+ 
+     if (n->base_name && n->sub_name) {
+         res = snprintf(class_part, sizeof(class_part), "%s %s ", n->sub_name, n->classnum_name);
+     } else if (n->base_name) {
+         res = snprintf(class_part, sizeof(class_part), "%s %s ", n->base_name, n->classnum_name);
+-    } else{
++    } else {
+         res = snprintf(class_part, sizeof(class_part), "Class %s ", n->classnum_name);
+     }
+ 
+@@ -144,9 +145,8 @@ static char *format_name_pair(char *buf, size_t size, struct ub_ids_name *n)
+     }
+ 
+     res = snprintf(buf, size, "%s%s%s%s", class_part, vendor_part, device_part, n->numeric_name);
+-
+     if (res < 0 || (size_t)res >= size)
+-        return (char*)"<ub ids parse: buffer too small>";
++        return ub_ids_err;
+ 
+     return buf;
+ }
+@@ -183,7 +183,7 @@ static int ub_id_insert(struct ub_access *uacc, struct ub_ids_id *ids_id,
+     uint32_t id56 = id_pair(ids_id->base_id, ids_id->sub_id);
+     unsigned int h = id_hash(ids_id->cat, id12, id34, id56);
+     struct id_entry *n = uacc->id_hash ? uacc->id_hash[h] : NULL;
+-    uint32_t len = strlen(text) + 1;
++    uint32_t len = (uint32_t)strlen(text) + 1;
+ 
+     while (n && (n->id12 != id12 || n->id34 != id34 || n->id56 || n->cat != ids_id->cat))
+         n = n->next;
+@@ -382,7 +382,7 @@ static const char *ids_line_preprocess(char **ptr, char *line,
+     while (**ptr && **ptr != '\n' && **ptr != '\r')
+         (*ptr)++;
+ 
+-    if (!(**ptr) && !ub_ids_eof(ids_file))
++    if (!(**ptr) && !UB_IDS_EOF(ids_file))
+         return "Line too long";
+     **ptr = 0;
+     if (*ptr > line && ((*ptr)[-1] == ' ' || (*ptr)[-1] == '\t'))
+@@ -418,7 +418,7 @@ static const char *id_parse_list(struct ub_access *uacc,
+     ids_id.cat = 0xffffffff;
+     ids_id.sub_id = SUB_CONFIG;
+     ids_id.vendor_id = ids_id.device_id = ids_id.subsys_vendor_id = ids_id.subsys_id = ids_id.base_id= 0;
+-    while (ub_ids_gets(ids_file, line, sizeof(line))) {
++    while (UB_IDS_GETS(ids_file, line, sizeof(line))) {
+         (*line_no)++;
+         err = ids_line_preprocess(&p, line, ids_file, &continue_flag);
+         if (err)
+@@ -426,7 +426,7 @@ static const char *id_parse_list(struct ub_access *uacc,
+         if (continue_flag)
+             continue;
+ 
+-        nest = p - line;
++        nest = (int)(p - line);
+         if (!nest) { /* Top-level entries */
+             err = ids_parse_top_level(uacc, &ids_id, &p, &continue_flag);
+             if (err)
+@@ -460,13 +460,14 @@ static const char *id_parse_list(struct ub_access *uacc,
+ 
+ static int ub_load_name_list(struct ub_access *uacc)
+ {
++    static char default_ids_path[] = DEFAULT_IDS_PATH;
+     ub_ids_file ids_file;
+     int line_no;
+     const char *err;
+     char *real_file_name;
+ 
+     if (!uacc->id_file_name) {
+-        uacc->id_file_name = (char *)DEFAULT_IDS_PATH;
++        uacc->id_file_name = default_ids_path;
+     } else {
+         real_file_name = realpath(uacc->id_file_name, NULL);
+         if (!real_file_name)
+@@ -476,12 +477,12 @@ static int ub_load_name_list(struct ub_access *uacc)
+         uacc->id_file_name = real_file_name;
+         uacc->free_id_name = 1;
+     }
+-    if (!(ids_file = ub_ids_open(uacc)))
++    if (!(ids_file = UB_IDS_OPEN(uacc)))
+         return -1;
+ 
+     err = id_parse_list(uacc, ids_file, &line_no);
+     UB_ERROR_MSG(ids_file, err);
+-    ub_ids_close(ids_file);
++    UB_IDS_CLOSE(ids_file);
+     if (err) {
+         uacc->error("%s at %s, line %d\n", err, uacc->id_file_name, line_no);
+         return -1;
+@@ -494,6 +495,7 @@ char *ub_lookup_name(struct ub_access *uacc, char *buf, size_t size,
+                      uint32_t vendor_id, uint32_t device_id, uint32_t class_id)
+ {
+     char *vendor_name, *device_name, *sub_name, *base_name;
++    static char unknown[] = "Device";
+     struct ub_ids_name ids_name = {};
+     struct ub_ids_id ids_id = {};
+     char classbuf[16] = {};
+@@ -542,7 +544,7 @@ char *ub_lookup_name(struct ub_access *uacc, char *buf, size_t size,
+     ids_name.classnum_name = classbuf;
+     ids_name.sub_name = sub_name;
+     ids_name.base_name = base_name;
+-    ids_name.unknown = (char *)"Device";
++    ids_name.unknown = unknown;
+     return format_name_pair(buf, size, &ids_name);
+ }
+ 
+diff --git a/lsub/ls-route-tbl.c b/lsub/ls-route-tbl.c
+index 3de4ada..837272a 100644
+--- a/lsub/ls-route-tbl.c
++++ b/lsub/ls-route-tbl.c
+@@ -16,19 +16,19 @@
+ static void show_default_route_tbl(struct ub_entity *uent, uint16_t port_nums)
+ {
+     uint32_t *default_tlb;
+-    uint32_t ebw;
+     uint32_t ret;
+-    uint32_t i;
++    int ebw;
++    int i;
+ 
+-    ebw = ROUTE_TBL_ROUTE_TBL_EBW(port_nums);
+-    default_tlb = (uint32_t *)calloc(ebw, sizeof(uint32_t));
++    ebw = (int)ROUTE_TBL_ROUTE_TBL_EBW(port_nums);
++    default_tlb = (uint32_t *)calloc((size_t)ebw, (size_t)sizeof(uint32_t));
+     if (!default_tlb) {
+         printf("RouteTable Default table alloc failed.\n");
+         return;
+     }
+ 
+     ret = (uint32_t)ub_read_block(uent, ROUTE_TBL_SLICE + ROUTE_TBL_DEFAULT_ROUTE_TBL,
+-                                  (uint8_t *)default_tlb, sizeof(uint32_t) * ebw);
++                                  (uint8_t *)default_tlb, (int)sizeof(uint32_t) * ebw);
+     if (ret) {
+         printf("RouteTable default table read failed.\n");
+         free(default_tlb);
+@@ -37,7 +37,7 @@ static void show_default_route_tbl(struct ub_entity *uent, uint16_t port_nums)
+ 
+     printf("Default RouteTable:\n");
+     for (i = 0; i < ebw; i++) {
+-        printf("\t\t[%04lx] %08x\n", i * sizeof(uint32_t), default_tlb[i]);
++        printf("\t\t[%04x] %08x\n", (uint32_t)(i * (int)sizeof(uint32_t)), default_tlb[i]);
+     }
+     free(default_tlb);
+ }
+@@ -51,7 +51,8 @@ static void show_exact_route_tbl(struct ub_entity *uent, uint16_t port_nums,
+     uint32_t ret;
+     uint32_t ers;
+ 
+-    ret = (uint32_t)ub_read_block(uent, ROUTE_TBL_SLICE + ROUTE_TBL_EXACT_ROUTE_SUP,
++    ret = (uint32_t)ub_read_block(uent, (uint64_t)(ROUTE_TBL_SLICE +
++                                  ROUTE_TBL_EXACT_ROUTE_SUP),
+                                   (uint8_t *)&ers, sizeof(ers));
+     if (ret) {
+         printf("RouteTable exact table info read failed.\n");
+@@ -63,13 +64,14 @@ static void show_exact_route_tbl(struct ub_entity *uent, uint16_t port_nums,
+         return;
+     }
+ 
+-    ebw = ROUTE_TBL_ROUTE_TBL_EBW(port_nums);
++    ebw = (uint32_t)ROUTE_TBL_ROUTE_TBL_EBW(port_nums);
+     exact_tlb = (uint32_t *)calloc(ebw, sizeof(uint32_t));
+     if (!exact_tlb) {
+         printf("RouteTable Exact table alloc failed.\n");
+         return;
+     }
+-    ret = (uint32_t)ub_read_block(uent, ROUTE_TBL_SLICE + ROUTE_TBL_ROUTE_TBL_ENTRY(port_nums, cna),
++    ret = (uint32_t)ub_read_block(uent, ROUTE_TBL_SLICE +
++                                  ROUTE_TBL_ROUTE_TBL_ENTRY(port_nums, cna),
+                                   (uint8_t *)exact_tlb, (int)(sizeof(uint32_t) * ebw));
+     if (ret) {
+         printf("RouteTable exact table entry read failed.\n");
+diff --git a/lsub/ls-slice.c b/lsub/ls-slice.c
+index 7491645..22accfb 100644
+--- a/lsub/ls-slice.c
++++ b/lsub/ls-slice.c
+@@ -27,7 +27,7 @@ int slice_read(struct ub_entity *uent, uint32_t slice_addr, uint8_t *data_buf, u
+ 
+     /* read slice body */
+     slice_used_size = (uint32_t)to_chunkbits(slice_header, CFG_BIT4, CFG_BIT31);
+-    *data_len = min(slice_used_size * CFG_DWORD_LEN, *data_len);
++    *data_len = MIN(slice_used_size * CFG_DWORD_LEN, *data_len);
+ 
+     ret_code = ub_read_block(uent, slice_addr, data_buf, (int)(*data_len));
+     if (ret_code) {
+diff --git a/lsub/lsub.h b/lsub/lsub.h
+index 78750af..51f3427 100644
+--- a/lsub/lsub.h
++++ b/lsub/lsub.h
+@@ -155,9 +155,9 @@ enum {
+ #define ROUTE_TBL_NUM_OF_TLB_ENTRY          (0x1 * CFG_DWORD_LEN)
+ #define ROUTE_TBL_EXACT_ROUTE_SUP           (0x1 * CFG_DWORD_LEN + 2)
+ #define ROUTE_TBL_DEFAULT_ROUTE_TBL         (0x10 * CFG_DWORD_LEN)
+-#define ROUTE_TBL_ROUTE_TBL_EBW(port_nums)  ((((port_nums) - 1) >> 5) + 1)
++#define ROUTE_TBL_ROUTE_TBL_EBW(port_nums)  ((((port_nums) - 1U) >> 5) + 1U)
+ #define ROUTE_TBL_ROUTE_TBL_ENTRY(port_nums, cna) \
+-    ((0x10 + (((cna) + 1) * ROUTE_TBL_ROUTE_TBL_EBW(port_nums))) * CFG_DWORD_LEN)
++    ((0x10ULL + (((cna) + 1) * ROUTE_TBL_ROUTE_TBL_EBW(port_nums))) * CFG_DWORD_LEN)
+ 
+ /* eid has 128 bits */
+ #define CFG_EID_LEN             0x10
+diff --git a/lsub/port/basic.c b/lsub/port/basic.c
+index 6519385..fbf40b3 100644
+--- a/lsub/port/basic.c
++++ b/lsub/port/basic.c
+@@ -105,6 +105,7 @@ static void port_basic_nb_info(uint8_t *data)
+     uint8_t *guid_data, *port_data;
+     uint8_t type, version;
+     uint64_t seq_num;
++    uint32_t rsvd;
+ 
+     port_data = data;
+     port_index = (uint16_t)to_chunkbits(port_data, CFG_BIT0, CFG_BIT15);
+@@ -116,12 +117,13 @@ static void port_basic_nb_info(uint8_t *data)
+     guid_data = data + CFG_DWORD_LEN;
+     seq_num = to_uint64(guid_data);
+     guid_data += CFG_QWORD_LEN;
++    rsvd = (uint32_t)to_chunkbits(guid_data, CFG_BIT0, CFG_BIT23);
+     type = (uint8_t)to_chunkbits(guid_data, CFG_BIT24, CFG_BIT27);
+     version = (uint8_t)to_chunkbits(guid_data, CFG_BIT28, CFG_BIT31);
+     device_id = (uint16_t)to_chunkbits(guid_data, CFG_BIT32, CFG_BIT47);
+     vendor_id = (uint16_t)to_chunkbits(guid_data, CFG_BIT48, CFG_BIT63);
+     sprintf(port_info->display_buf, "\n\t\t\t\t\tNeighbor_port_GUID: "
+-            "%04x-%04x-%01x-%01x-000000-%016lx", vendor_id, device_id, version, type, seq_num);
++            "%04x-%04x-%01x-%01x-%06x-%016lx", vendor_id, device_id, version, type, rsvd, seq_num);
+     printf("%s", port_info->display_buf);
+ }
+ 
+diff --git a/lsub/port/cap14_eye_montior.c b/lsub/port/cap14_eye_monitor.c
+similarity index 100%
+rename from lsub/port/cap14_eye_montior.c
+rename to lsub/port/cap14_eye_monitor.c
+diff --git a/lsub/port/cap15_qdlws.c b/lsub/port/cap15_qdlws.c
+index 4722996..609b867 100644
+--- a/lsub/port/cap15_qdlws.c
++++ b/lsub/port/cap15_qdlws.c
+@@ -21,13 +21,14 @@ void port_cap15_qdlws(uint8_t *data, uint32_t data_len)
+     int off;
+ 
+     static struct val_desc qdlws_desc[] = {
+-        { 0x0, "IDLE" },     { 0x1, "NAK" }, { 0x2, "In progress" }, { 0x3, "Timeout" }, { 0x4, "Successful Done" },
++        { 0x0, "IDLE" }, { 0x1, "NAK" }, { 0x2, "In progress" }, { 0x3, "Timeout" }, { 0x4, "Successful Done" },
+         { INVALID_DESC, "" }
+     };
+ 
+     slice_ver = slice_get_version(data);
+     slice_size = slice_get_size(data);
+-    sprintf(port_info->display_buf, "\n\t\tPORT_CAP15_QDLWS: slice[0x%x, 0x%x] id[%u]", slice_ver, slice_size, port_cap_id);
++    sprintf(port_info->display_buf, "\n\t\tPORT_CAP15_QDLWS: slice[0x%x, 0x%x] id[%u]",
++            slice_ver, slice_size, port_cap_id);
+     printf("%s", port_info->display_buf);
+ 
+     if (slice_size < PQDLWS_LEN || data_len < PQDLWS_LEN) {
+diff --git a/lsub/port/cap1_link.c b/lsub/port/cap1_link.c
+index 3d27995..b3204fe 100644
+--- a/lsub/port/cap1_link.c
++++ b/lsub/port/cap1_link.c
+@@ -450,7 +450,7 @@ static void pl_phy_ctrl8_9(uint8_t *data)
+     uint8_t *cur_data;
+     uint64_t tmp0;
+     int off = 0;
+-    uint8_t i;
++    int i;
+ 
+     cur_data = data + PL_PHY_CTRL8;
+     off = sprintf(port_info->display_buf, "\n\t\t\tPHY Link Control 8 and 9:");
+diff --git a/setub/setub.c b/setub/setub.c
+index 7630fdb..cc01b71 100644
+--- a/setub/setub.c
++++ b/setub/setub.c
+@@ -398,14 +398,15 @@ static int parse_guid(char *c, struct ub_guid *guid)
+ 
+ #define TYPE_MASK 0xf
+ #define VERSION_MASK 0xf
++#define RSV_MASK 0xffffff
+     guid->bits.vendor = (uint16_t)vendor;
+     guid->bits.device = (uint16_t)device;
+     guid->bits.type = type & TYPE_MASK;
+     guid->bits.version = version & VERSION_MASK;
+-    guid->bits.rsvd0 = (uint32_t)rsv0;
++    guid->bits.rsvd0 = rsv0 & RSV_MASK;
+     guid->bits.seq_num = seq_num;
+ 
+-    (void)printf("guid_h: %016llx guid_l: %016llx\n", guid->datas.guid_h, guid->datas.guid_l);
++    (void)printf("guid_h: 0x%016llx guid_l: 0x%016llx\n", guid->datas.guid_h, guid->datas.guid_l);
+ 
+     return 0;
+ }
+@@ -594,8 +595,8 @@ int main(int argc, char **argv)
+     int ret;
+ 
+     if (argc == 2 && !strcmp(argv[1], "--version")) {
+-    	puts("setub version "UBUTILS_VERSION);
+-	return 0;
++        puts("setub version "UBUTILS_VERSION);
++        return 0;
+     }
+ 
+     uacc = ub_alloc_acc();
+diff --git a/ub.ids b/ub.ids
+index 4f1e8f4..76aa615 100644
+--- a/ub.ids
++++ b/ub.ids
+@@ -25,6 +25,10 @@ cc08  Huawei Technologies Co., Ltd.
+ 	d808  CCU management ub entity
+ 	d809  CCU ub entity
+ 	d80a  Bus controller
++	d80b  URMA UBoE management ub entity
++	d80c  URMA UBoE ub entity
++	8200  SP500U Family management ub entity
++	8201  SP500U Family ub entity
+ C 00  Bus controller
+ 	00  UB bus controller
+ C 01  Memory controller
+-- 
+2.34.1
+
