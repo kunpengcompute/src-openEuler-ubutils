@@ -1,7 +1,7 @@
 Summary: Implementation of ubutils
 Name: ubutils
 Version: 1.0.2
-Release: 6
+Release: 7
 License: MIT
 URL: https://gitee.com/openeuler/ubutils
 Source0: %{name}-%{version}.tar.gz
@@ -56,6 +56,9 @@ install -m 644 lsub.8 setub.8 $RPM_BUILD_ROOT%{_prefix}/share/man/man8
 rm -rf %{buildroot}
 
 %changelog
+* Tue Jul 21 2026 laz <lianzhe1@h-partners.com> - 1.0.2-7
+- Optimized the log printing and spelling of English words
+
 * Wed May 20 2026 laz <lianzhe1@h-partners.com> - 1.0.2-6
 - Change source package name
 
