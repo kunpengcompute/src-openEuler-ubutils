@@ -1,11 +1,11 @@
 #!/usr/bin/make -f
-
+UPSTREAM_VERSION := $(shell dpkg-parsechangelog -S Version | cut -d- -f1)
 export DH_VERBOSE = 1
 export DEB_BUILD_MAINT_OPTIONS = hardening=+all
 
-SOURCE_TARBALL := $(CURDIR)/ubutils.tar.gz
+SOURCE_TARBALL := $(CURDIR)/ubutils-$(UPSTREAM_VERSION).tar.gz
 WORK_DIR := $(CURDIR)/debian/build-tree
-SRC_DIR := $(WORK_DIR)/ubutils
+SRC_DIR := $(WORK_DIR)/ubutils-$(UPSTREAM_VERSION)
 BUILD_DIR := $(WORK_DIR)/build
 PKG_DIR := $(CURDIR)/debian/ubutils
 PATCHES := \
