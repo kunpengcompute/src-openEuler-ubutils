@@ -2,10 +2,10 @@ Source: ubutils
 Section: utils
 Priority: optional
 Maintainer: Jianquan Lin <linjianquan2@huawei.com>
-Build-Depends: debhelper-compat (= 13), cmake, gcc, g++, make, patch
+Build-Depends: debhelper-compat (= 13), gcc, g++, make, cmake
 Standards-Version: 4.6.2
 Rules-Requires-Root: no
-Homepage: https://gitee.com/openeuler/ubutils
+Homepage: https://atomgit.com/openeuler/ubutils
 
 Package: ubutils
 Architecture: arm64

@@ -1,6 +1,6 @@
 Format: https://www.debian.org/doc/packaging-manuals/copyright-format/1.0/
 Upstream-Name: ubutils
-Source: https://gitee.com/openeuler/ubutils
+Source: https://atomgit.com/openeuler/ubutils
 
 Files: *
 Copyright: 2025 HiSilicon Technologies Co., Ltd.

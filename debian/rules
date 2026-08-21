@@ -1,33 +1,18 @@
 #!/usr/bin/make -f
-UPSTREAM_VERSION := $(shell dpkg-parsechangelog -S Version | cut -d- -f1)
 export DH_VERBOSE = 1
 export DEB_BUILD_MAINT_OPTIONS = hardening=+all
 
-SOURCE_TARBALL := $(CURDIR)/ubutils-$(UPSTREAM_VERSION).tar.gz
 WORK_DIR := $(CURDIR)/debian/build-tree
-SRC_DIR := $(WORK_DIR)/ubutils-$(UPSTREAM_VERSION)
+SRC_DIR := $(CURDIR)
 BUILD_DIR := $(WORK_DIR)/build
 PKG_DIR := $(CURDIR)/debian/ubutils
-PATCHES := \
-	$(CURDIR)/0001-ub-ubutils-delete-mode-number-for-FEC.patch \
-	$(CURDIR)/0002-ub-ubutils-bugfix-some-issues-for-ubutils.patch
 BINARY_PKG := ubutils
 DIST_TAG := velinux
 
 %:
 	dh $@
 
-$(SRC_DIR)/.patched: $(SOURCE_TARBALL) $(PATCHES)
-	rm -rf $(WORK_DIR)
-	mkdir -p $(WORK_DIR)
-	tar -xzf $(SOURCE_TARBALL) -C $(WORK_DIR)
-	set -e; \
-	for patch in $(PATCHES); do \
-		patch -d $(SRC_DIR) -p1 < "$$patch"; \
-	done
-	touch $@
-
-override_dh_auto_configure: $(SRC_DIR)/.patched
+override_dh_auto_configure:
 	cmake -Wno-dev -S $(SRC_DIR) -B $(BUILD_DIR) \
 		-DCMAKE_BUILD_TYPE=RelWithDebInfo \
 		-DCMAKE_INSTALL_PREFIX=/usr
@@ -60,9 +45,6 @@ override_dh_installdocs:
 	install -D -m 0644 $(SRC_DIR)/LICENSE $(PKG_DIR)/usr/share/doc/ubutils/LICENSE
 
 override_dh_dwz:
-
-override_dh_strip:
-	dh_strip --no-automatic-dbgsym
 
 override_dh_builddeb:
 	dh_builddeb
