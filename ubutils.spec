@@ -84,3 +84,4 @@ rm -rf %{buildroot}
 
 * Tue Aug 12 2025 laz <lianzhe1@h-partners.com> - 1.0.0-1
 - Support the basic debug tool(Ubutils) of ubus, including setub, lsub and ub.ids.
+
