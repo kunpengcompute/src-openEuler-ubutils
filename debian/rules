@@ -39,25 +39,5 @@ override_dh_auto_install:
 	install -D -m 0644 $(WORK_DIR)/lsub.8 $(PKG_DIR)/usr/share/man/man8/lsub.8
 	install -D -m 0644 $(WORK_DIR)/setub.8 $(PKG_DIR)/usr/share/man/man8/setub.8
 
-override_dh_installdocs:
-	dh_installdocs -XREADME -XLICENSE
-	install -D -m 0644 $(SRC_DIR)/README.md $(PKG_DIR)/usr/share/doc/ubutils/README.md
-	install -D -m 0644 $(SRC_DIR)/LICENSE $(PKG_DIR)/usr/share/doc/ubutils/LICENSE
-
-override_dh_dwz:
-
-override_dh_builddeb:
-	dh_builddeb
-	deb_version="$$(dpkg-parsechangelog -S Version)"; \
-	base_version="$$(printf '%s\n' "$$deb_version" | sed 's/+.*//; s/-.*//')"; \
-	arch="$$(dpkg-architecture -qDEB_HOST_ARCH)"; \
-	standard_deb="$(CURDIR)/../$(BINARY_PKG)_$${deb_version}_$${arch}.deb"; \
-	velinux_deb="$(CURDIR)/../$(BINARY_PKG)_$${base_version}_$(DIST_TAG)_$${arch}.deb"; \
-	mv -f "$$standard_deb" "$$velinux_deb"; \
-	sed -i "s|$(BINARY_PKG)_$${deb_version}_$${arch}\\.deb|$(BINARY_PKG)_$${base_version}_$(DIST_TAG)_$${arch}.deb|g" \
-		$(CURDIR)/debian/files
-
-override_dh_auto_test:
-
 override_dh_auto_clean:
 	rm -rf $(WORK_DIR)
