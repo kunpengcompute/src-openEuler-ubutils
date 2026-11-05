@@ -1,11 +1,11 @@
-ubutils (1.0.2-2) bookworm; urgency=medium
+ubutils (1.0.2-2) UNRELEASED; urgency=medium
 
   * Fix the Debian build to use the versioned source archive and its
     matching extracted directory.
 
  -- qiushengming <qiushengming1@huawei.com>  Sat, 01 Aug 2026 16:20:55 +0800
 
-ubutils (1.0.2) bookworm; urgency=medium
+ubutils (1.0.2) UNRELEASED; urgency=medium
 
   * Add Debian packaging support for building a deb package from the
     openEuler source archive.
