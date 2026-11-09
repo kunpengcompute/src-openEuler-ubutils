@@ -1,10 +1,10 @@
-ubutils (1.0.2-7) unstable; urgency=medium
+ubutils (1.0.3-1) unstable; urgency=medium
 
   * 930 snapshot (openEuler-24.03-LTS-SP3-release) packaged as deb.
   * Version aligned with 930 spec.
 
  -- chen_sz <chen_sz@gitcode.com>  Tue, 03 Nov 2026 19:31:29 +0800
- 
+
 ubutils (1.0.2-2) bookworm; urgency=medium
 
   * Fix the Debian build to use the versioned source archive and its
