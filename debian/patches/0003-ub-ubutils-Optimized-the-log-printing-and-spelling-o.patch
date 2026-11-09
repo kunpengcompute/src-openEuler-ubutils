@@ -1,0 +1,803 @@
+From fe75be987dd97a1ede6582007590704846cd130b Mon Sep 17 00:00:00 2001
+From: Anzhe Li <lianzhe1@h-partners.com>
+Date: Mon, 29 Jun 2026 15:12:08 +0800
+Subject: [PATCH 1/2] ub:ubutils: Optimized the log printing and spelling of
+ English words
+
+driver inclusion
+category: bugfix
+bugzilla: https://atomgit.com/openeuler/ubutils/issues/5
+CVE: NA
+
+-----------------------------------------------------------
+
+The ubutils code contains some issues related to code compilation
+standards and English spelling errors. Therefore, we have
+optimized the code by adding log printing, corrected the
+spelling errors, and fixed the code's blank lines.
+
+Signed-off-by: Anzhe Li <lianzhe1@h-partners.com>
+---
+ include/ubutils.h                 |  6 ++---
+ lib/common.c                      |  2 +-
+ lib/sysfs.c                       | 26 ++++++++++-----------
+ lsub/businstance.c                |  6 ++---
+ lsub/cfg0/err_info.c              | 10 ++++----
+ lsub/cfg1/basic.c                 |  6 ++---
+ lsub/ids.c                        | 14 ++++++------
+ lsub/ls-route-tbl.c               | 20 ++++++++--------
+ lsub/lsub.c                       | 38 +++++++++++++++----------------
+ lsub/lsub.h                       | 14 ++++++------
+ lsub/port/cap1_link.c             | 10 ++++----
+ lsub/port/cap21_port_err_record.c |  2 +-
+ lsub/topo.c                       | 10 ++++----
+ setub/setub.c                     | 18 +++++++--------
+ 14 files changed, 91 insertions(+), 91 deletions(-)
+
+diff --git a/include/ubutils.h b/include/ubutils.h
+index 65a4d73..6cb10bc 100644
+--- a/include/ubutils.h
++++ b/include/ubutils.h
+@@ -71,7 +71,7 @@ struct device {
+ struct ub_entity {
+     struct ub_entity *next; /* Next uent in the chain */
+ 
+-    /* These fields are define by specification */
++    /* These fields are defined by specification */
+     uint32_t vendor_id;
+     uint16_t device_id;
+     uint32_t class_code; /* UB entity class code */
+@@ -88,7 +88,7 @@ struct ub_entity {
+     struct ub_methods *methods;
+     struct ub_route_tb *route_tb;
+     uint32_t par_uent_num; /* parent dev's uent number */
+-    uint32_t scaned; /* topo show scaned */
++    uint32_t scanned; /* topo show scanned */
+     uint32_t printed; /* topo show printed */
+     char driver_name[MAX_DRIVER_NAME_LEN];
+ };
+@@ -104,7 +104,7 @@ struct ub_bi {
+ /* Options you can change */
+ struct ub_access {
+     unsigned int method; /* Access method */
+-    int numeric_ids; /* numeric ids show in list */
++    int numeric_ids; /* numeric IDs shown in list */
+     int kernel_driver; /* kernel driver */
+ 
+     struct ub_entity *uents; /* uents found on this bus */
+diff --git a/lib/common.c b/lib/common.c
+index 2943ffb..f7be07a 100644
+--- a/lib/common.c
++++ b/lib/common.c
+@@ -412,7 +412,7 @@ void ub_cleanup(struct ub_access *uacc)
+     ub_free_params(uacc);
+     free(uacc);
+ 
+-    /* Free all device */
++    /* Free all devices */
+     for (dev = g_first_dev; dev; dev = next_dev) {
+         free(dev->config);
+         next_dev = dev->next;
+diff --git a/lib/sysfs.c b/lib/sysfs.c
+index 089d228..a56ec86 100644
+--- a/lib/sysfs.c
++++ b/lib/sysfs.c
+@@ -117,7 +117,7 @@ void sysfs_get_mue_list(struct ub_entity *uent)
+     }
+ 
+     while (fgets(buf, (int)sizeof(buf), file)) {
+-        if (sscanf(buf, "%05x", &mue_uent_num) != 1) { /* 1 fields */
++        if (sscanf(buf, "%05x", &mue_uent_num) != 1) { /* 1 field */
+             uacc->error("Syntax error in %s", namebuf);
+             continue;
+         }
+@@ -155,7 +155,7 @@ void sysfs_get_ue_list(struct ub_entity *uent, uint8_t level)
+     }
+ 
+     while (fgets(buf, (int)sizeof(buf), file)) {
+-        if (sscanf(buf, "%05x", &ue_uent_num) != 1) { /* 1 fields */
++        if (sscanf(buf, "%05x", &ue_uent_num) != 1) { /* 1 field */
+             uacc->error("Syntax error in %s", namebuf);
+             continue;
+         }
+@@ -192,7 +192,7 @@ static int ub_parse_instance_sys(struct ub_access *uacc, FILE *file, unsigned in
+     if (fseek(file, 0, SEEK_SET) != 0) {
+         uacc->error("Failed to reset sys instance file pointer for writing instance start point");
+         return -EIO;
+-     }
++    }
+ 
+     if (fputs(str, file) < 0) {
+         uacc->error("Failed to set instance start point[%u] to sysfs", start);
+@@ -202,7 +202,7 @@ static int ub_parse_instance_sys(struct ub_access *uacc, FILE *file, unsigned in
+     if (fseek(file, 0, SEEK_SET) != 0) {
+         uacc->error("Failed to reset sys instance file pointer for reading instance entry");
+         return -EIO;
+-     }
++    }
+ 
+     /* Ignore the first line */
+     if (fgets(buf, (int)sizeof(buf), file) == NULL) {
+@@ -391,7 +391,7 @@ static int ub_scan_attr_cfg(struct ub_entity *uent, uint32_t uent_num)
+     uent->uent_num = uent_num;
+     uent->par_uent_num = UB_INIT_PARENT;
+ 
+-    strcpy(uent->driver_name, "No used driver");
++    strcpy(uent->driver_name, "No driver in use");
+     driver_path = sysfs_get_link(uent, "driver");
+     if (driver_path) {
+         char *driver = strrchr(driver_path, '/');
+@@ -498,7 +498,7 @@ static void show_read_error(uint64_t pos, uint8_t *buf, int len)
+ 
+     for (; i < len; i++) {
+         if (buf[(i + len)] == 0xFF) {
+-            printf("\nWarning: Failed to access the following address:\n");
++            fprintf(stderr, "Warning: Failed to access the following address:\n");
+             goto error;
+         }
+     }
+@@ -510,27 +510,27 @@ error:
+             continue;
+         }
+         if ((i + 1 < len) && (buf[(i + 1 + len)] == 0xFF)) {
+-            printf("%016llx--", pos + i);
++            fprintf(stderr, "%016llx--", pos + i);
+             while ((i + 1 < len) && (buf[(i + 1 + len)] == 0xFF)) {
+                 i++;
+             }
+-            printf("%016llx  ", (pos + i));
++            fprintf(stderr, "%016llx  ", (pos + i));
+             line_count += ERR_SEG_NUM;
+         } else {
+-            printf("%016llx  ", (pos + i));
++            fprintf(stderr, "%016llx  ", (pos + i));
+             line_count++;
+         }
+         need_line_break = 1;
+         if (line_count >= BYTES_IN_LINE) {
+-            printf("\n");
++            fprintf(stderr, "\n");
+             need_line_break = 0;
+             line_count = 0;
+         }
+     }
+     if (need_line_break) {
+-        printf("\n");
++        fprintf(stderr, "\n");
+     }
+-    printf("\n");
++    fprintf(stderr, "\n");
+ }
+ 
+ static int sysfs_ub_read(struct ub_entity *uent, uint64_t pos, uint8_t *buf, int len)
+@@ -650,4 +650,4 @@ struct ub_methods linux_sysfs = {
+     sysfs_ub_write,
+     NULL, /* init_dev */
+     sysfs_ub_cleanup_dev,
+-};
+\ No newline at end of file
++};
+diff --git a/lsub/businstance.c b/lsub/businstance.c
+index a82344b..014b402 100644
+--- a/lsub/businstance.c
++++ b/lsub/businstance.c
+@@ -21,7 +21,7 @@ static const char *ub_get_type_str(uint8_t type)
+ {
+     if (type == BI_DYNAMIC_SERVER) {
+         return "Dynamic_Server";
+-    } else if(type == BI_DYNAMIC_CLUSTER) {
++    } else if (type == BI_DYNAMIC_CLUSTER) {
+         return "Dynamic_Cluster";
+     } else if (type == BI_STATIC_SERVER) {
+         return "Static_Server";
+@@ -110,7 +110,7 @@ static void ub_show_uent_bi_info(struct ub_access *uacc, uint32_t uent_num)
+             }
+         }
+         if (!found_bi) {
+-            printf("Failed to find busInstance for this entity, somethings wrong\n");
++            fprintf(stderr, "Failed to find busInstance for this entity\n");
+         }
+     } else {
+         printf("No such entity found\n");
+@@ -136,4 +136,4 @@ void show_bi_info(struct ub_access *uacc, struct lsub_cmd_param *ls_cmd)
+     }
+ 
+     ub_free_bi_list(uacc);
+-}
+\ No newline at end of file
++}
+diff --git a/lsub/cfg0/err_info.c b/lsub/cfg0/err_info.c
+index 8ac5406..21dd51e 100644
+--- a/lsub/cfg0/err_info.c
++++ b/lsub/cfg0/err_info.c
+@@ -21,7 +21,7 @@ static int err_info_ctl_reg(uint8_t *data, char *display_buf)
+ 
+     return sprintf(display_buf,
+         "\n\t\t\tError Information Control Register:"
+-        "\n\t\t\t\tError information overflow%s Error information queue depth: 0x%x",
++        "\n\t\t\t\tError Information overflow%s Error Information queue depth: 0x%x",
+         bit_parser(err_info_of), err_info_que_dep);
+ }
+ 
+@@ -66,15 +66,15 @@ static int spc_def_err_info(uint8_t *data, char *display_buf)
+     spc_def_err_info = (uint32_t)to_chunkbits(err_data, CFG_BIT0, CFG_BIT31);
+     off += sprintf(display_buf,
+         "\n\t\t\tSpec Defined Error Information:"
+-        "\n\t\t\t\tSpec Defined Error information[31:0]: 0x%x"
+-        "\n\t\t\t\tSpec Defined Error information[63]: %s",
++        "\n\t\t\t\tSpec Defined Error Information[31:0]: 0x%x"
++        "\n\t\t\t\tSpec Defined Error Information[63]: %s",
+         spc_def_err_info, spc_def_err_level ? "device err" : "port err");
+ 
+     for (i = 0; i < ERR_INFO_NUM; i++) {
+         err_data += CFG_QWORD_LEN;
+         err_info[i] = to_uint64(err_data);
+         off += sprintf(display_buf + off,
+-            "\n\t\t\t\tSpec Defined Error information[%d:%d]: 0x%llx",
++            "\n\t\t\t\tSpec Defined Error Information[%d:%d]: 0x%llx",
+             CFG_BIT64 * (i + CFG_BIT2) - CFG_BIT1, CFG_BIT64 * (i + CFG_BIT1), err_info[i]);
+     }
+ 
+@@ -116,4 +116,4 @@ void cfg0_err_info_cap(uint8_t *data, uint32_t data_len)
+     off += vdr_def_err_info(data + VDR_DEF_ERR_INFO, cfg0_info->display_buf + off);
+ 
+     (void)printf("%s", cfg0_info->display_buf);
+-}
+\ No newline at end of file
++}
+diff --git a/lsub/cfg1/basic.c b/lsub/cfg1/basic.c
+index 014857b..86e4b94 100644
+--- a/lsub/cfg1/basic.c
++++ b/lsub/cfg1/basic.c
+@@ -115,7 +115,7 @@ static void cfg1_ers(uint8_t *data, uint8_t rs_idx)
+ 
+     sys_pgs = (to_1bit(data + CFG1_SYS_PGS - rs_ss_pos[rs_idx], CFG_BIT0) ? CFG1_SS_64K : CFG1_SS_4K);
+ 
+-    /* G->M->KB */
++    /* GB->MB->KB */
+     ers_ss = ((uint64_t)to_uint32(data)) * sys_pgs;
+     if (((size = (ers_ss >> SIZE_1G_BITS)) > 0) &&
+         ((ers_ss & SIZE_1G_MASK) == 0)) {
+@@ -263,7 +263,7 @@ int lsub_cfg1_basic(struct ub_entity_cfg_info *info)
+         {CFG1_CLASS_CODE,       cfg1_class_code},
+         {CFG1_DEV_TOKEN_ID,     cfg1_dev_token_id},
+         {CFG1_BUS_EN,           cfg1_bus_en},
+-        {CFG1_DEV_RS_ACESS_EN,  cfg1_ers_access_en},
++        {CFG1_DEV_RS_ACCESS_EN, cfg1_ers_access_en},
+         {0x0,                   NULL}
+     };
+     char desp[128];
+@@ -297,4 +297,4 @@ int lsub_cfg1_basic(struct ub_entity_cfg_info *info)
+     }
+ 
+     return 0;
+-}
+\ No newline at end of file
++}
+diff --git a/lsub/ids.c b/lsub/ids.c
+index 1e8dd13..fcec1dd 100644
+--- a/lsub/ids.c
++++ b/lsub/ids.c
+@@ -94,7 +94,7 @@ static char *ub_id_lookup(struct ub_access *uacc, struct ub_ids_id *ids_id)
+         n = uacc->id_hash[id_hash(cat, id12, id34, id56)];
+         best = NULL;
+         for (; n; n = n->next) {
+-            if (n->id12 != id12 || n->id34 != id34 || n->id56 != id56 ||  n->cat != cat)
++            if (n->id12 != id12 || n->id34 != id34 || n->id56 != id56 || n->cat != cat)
+                 continue;
+             if (!best || best->src < n->src)
+                 best = n;
+@@ -112,7 +112,7 @@ static char *id_lookup(struct ub_access *uacc, struct ub_ids_id *ids_id)
+ 
+     name = ub_id_lookup(uacc, ids_id);
+     if (!name)
+-        return 0; /* Can not find IDs name */
++        return 0; /* Cannot find IDs name */
+ 
+     return (name[0] ? name : NULL); /* IDs name of the entry is empty */
+ }
+@@ -185,7 +185,7 @@ static int ub_id_insert(struct ub_access *uacc, struct ub_ids_id *ids_id,
+     struct id_entry *n = uacc->id_hash ? uacc->id_hash[h] : NULL;
+     uint32_t len = (uint32_t)strlen(text) + 1;
+ 
+-    while (n && (n->id12 != id12 || n->id34 != id34 || n->id56 || n->cat != ids_id->cat))
++    while (n && (n->id12 != id12 || n->id34 != id34 || n->id56 != id56 || n->cat != ids_id->cat))
+         n = n->next;
+     if (n) /* Matching location found */
+         return -1;
+@@ -263,7 +263,7 @@ static const char *ids_parse_top_level(struct ub_access *uacc,
+         return NULL;
+     } else if ((*ptr)[0] >= 'A' && (*ptr)[0] <= 'Z' && (*ptr)[1] == ' ') { /* Unrecognized block (RFU) */
+         ids_id->cat = ID_UNKNOWN;
+-        ids_id->base_id= 0;
++        ids_id->base_id = 0;
+         *continue_flag = 1;
+         return NULL;
+     } else { /* Vendor ID */
+@@ -271,7 +271,7 @@ static const char *ids_parse_top_level(struct ub_access *uacc,
+         if ((vendor_id = id_hex(*ptr, 4)) < 0 || !id_white_p((*ptr)[4]))
+             return parse_error;
+         ids_id->cat = ID_VENDOR;
+-        ids_id->base_id= 0;
++        ids_id->base_id = 0;
+         ids_id->vendor_id = (uint32_t)vendor_id;
+         *ptr += 5; /* move 5 byte for used info */
+     }
+@@ -417,7 +417,7 @@ static const char *id_parse_list(struct ub_access *uacc,
+     *line_no = 0;
+     ids_id.cat = 0xffffffff;
+     ids_id.sub_id = SUB_CONFIG;
+-    ids_id.vendor_id = ids_id.device_id = ids_id.subsys_vendor_id = ids_id.subsys_id = ids_id.base_id= 0;
++    ids_id.vendor_id = ids_id.device_id = ids_id.subsys_vendor_id = ids_id.subsys_id = ids_id.base_id = 0;
+     while (UB_IDS_GETS(ids_file, line, sizeof(line))) {
+         (*line_no)++;
+         err = ids_line_preprocess(&p, line, ids_file, &continue_flag);
+@@ -452,7 +452,7 @@ static const char *id_parse_list(struct ub_access *uacc,
+         if (!*p)
+             return parse_error;
+         if (ub_id_insert(uacc, &ids_id, p, SRC_LOCAL))
+-            return "Duplicate item or memory application failed";
++            return "Duplicate item or memory allocation failed";
+     }
+ 
+     return NULL;
+diff --git a/lsub/ls-route-tbl.c b/lsub/ls-route-tbl.c
+index 837272a..bbd19d0 100644
+--- a/lsub/ls-route-tbl.c
++++ b/lsub/ls-route-tbl.c
+@@ -23,14 +23,14 @@ static void show_default_route_tbl(struct ub_entity *uent, uint16_t port_nums)
+     ebw = (int)ROUTE_TBL_ROUTE_TBL_EBW(port_nums);
+     default_tlb = (uint32_t *)calloc((size_t)ebw, (size_t)sizeof(uint32_t));
+     if (!default_tlb) {
+-        printf("RouteTable Default table alloc failed.\n");
++        fprintf(stderr, "RouteTable Default table alloc failed.\n");
+         return;
+     }
+ 
+     ret = (uint32_t)ub_read_block(uent, ROUTE_TBL_SLICE + ROUTE_TBL_DEFAULT_ROUTE_TBL,
+                                   (uint8_t *)default_tlb, (int)sizeof(uint32_t) * ebw);
+     if (ret) {
+-        printf("RouteTable default table read failed.\n");
++        fprintf(stderr, "RouteTable default table read failed.\n");
+         free(default_tlb);
+         return;
+     }
+@@ -55,7 +55,7 @@ static void show_exact_route_tbl(struct ub_entity *uent, uint16_t port_nums,
+                                   ROUTE_TBL_EXACT_ROUTE_SUP),
+                                   (uint8_t *)&ers, sizeof(ers));
+     if (ret) {
+-        printf("RouteTable exact table info read failed.\n");
++        fprintf(stderr, "RouteTable exact table info read failed.\n");
+         return;
+     }
+ 
+@@ -67,14 +67,14 @@ static void show_exact_route_tbl(struct ub_entity *uent, uint16_t port_nums,
+     ebw = (uint32_t)ROUTE_TBL_ROUTE_TBL_EBW(port_nums);
+     exact_tlb = (uint32_t *)calloc(ebw, sizeof(uint32_t));
+     if (!exact_tlb) {
+-        printf("RouteTable Exact table alloc failed.\n");
++        fprintf(stderr, "RouteTable Exact table alloc failed.\n");
+         return;
+     }
+     ret = (uint32_t)ub_read_block(uent, ROUTE_TBL_SLICE +
+                                   ROUTE_TBL_ROUTE_TBL_ENTRY(port_nums, cna),
+                                   (uint8_t *)exact_tlb, (int)(sizeof(uint32_t) * ebw));
+     if (ret) {
+-        printf("RouteTable exact table entry read failed.\n");
++        fprintf(stderr, "RouteTable exact table entry read failed.\n");
+         free(exact_tlb);
+         return;
+     }
+@@ -106,29 +106,29 @@ void show_route_tbl(struct ub_access *uacc, uint32_t uent_num, uint32_t cna)
+                                   (uint8_t *)&route_tbl_sup, sizeof(route_tbl_sup));
+     route_tbl_sup = to_1bit((uint8_t *)&route_tbl_sup, CFG_BIT4);
+     if (ret || !route_tbl_sup) {
+-        printf("RouteTable not support in this UB entity %05x.\n", uent_num);
++        printf("RouteTable not supported in this UB entity %05x.\n", uent_num);
+         return;
+     }
+ 
+     ret = (uint32_t)ub_read_block(uent, CFG0_SLICE_ADDR(0) + CFG0_PORT_NUMBER,
+                                   (uint8_t *)&port_nums, sizeof(port_nums));
+     if (ret) {
+-        printf("port num read failed.\n");
++        fprintf(stderr, "port num read failed.\n");
+         return;
+     }
+ 
+     ret = (uint32_t)ub_read_block(uent, ROUTE_TBL_SLICE + ROUTE_TBL_NUM_OF_TLB_ENTRY,
+                                   (uint8_t *)&entry_num, sizeof(entry_num));
+     if (ret) {
+-        printf("RouteTable basic info read failed.\n");
++        fprintf(stderr, "RouteTable basic info read failed.\n");
+         return;
+     }
+ 
+     if (cna >= entry_num) {
+-        printf("Expected value error, cna(%04x) >= entry_num(%04x).\n", cna, entry_num);
++        fprintf(stderr, "Expected value error, cna(%04x) >= entry_num(%04x).\n", cna, entry_num);
+         return;
+     }
+ 
+     show_default_route_tbl(uent, port_nums);
+     show_exact_route_tbl(uent, port_nums, cna);
+-}
+\ No newline at end of file
++}
+diff --git a/lsub/lsub.c b/lsub/lsub.c
+index 75e37d7..da613cf 100644
+--- a/lsub/lsub.c
++++ b/lsub/lsub.c
+@@ -17,9 +17,9 @@
+ #include "lsub.h"
+ 
+ #define LS_MAX_SLICE            8
+-#define INVLID_EID_MSG          "Invalid EID"
+-#define INVLID_CNA_MSG          "Invalid CNA"
+-#define INVLID_PORT_MSG         "Invalid PORT"
++#define INVALID_EID_MSG         "Invalid EID"
++#define INVALID_CNA_MSG         "Invalid CNA"
++#define INVALID_PORT_MSG        "Invalid PORT"
+ #define INVALID_SLICE_MSG       "Invalid SLICE"
+ #define TOO_MANY_SLICE_MSG      "Too many slices, only 8 of them"
+ #define DECIMAL_NUM             10
+@@ -50,7 +50,7 @@ static char help_info[] =
+ "-p <port>\tDisplay the entity with the specified entity number and the specified entity port\n"
+ "-E <eid>\tDisplay the bus instance with the specified EID\n"
+ "-r <cna>\tShow UB entity route table in specified CNA\n"
+-"-s [[<cfg0|cfg1|port>:]<slice>][,[<slice>]]\tDisplay informations about specified slices\n"
++"-s [[<cfg0|cfg1|port>:]<slice>][,[<slice>]]\tDisplay information about specified slices\n"
+ "\n"
+ "Display options:\n"
+ "-v\t\tBe verbose\n"
+@@ -117,7 +117,7 @@ static const char *parse_entity(char *str)
+ 
+     uent_num = strtoul(str, NULL, HEX);
+     if ((uent_num == 0) || (uent_num > MAX_UENT_NUM)) {
+-        return INVLID_EID_MSG;
++        return INVALID_EID_MSG;
+     }
+ 
+     ls_cmd.uent_num = (uint32_t)uent_num;
+@@ -130,7 +130,7 @@ static const char *parse_cna(char *str)
+ 
+     cna = strtoul(str, NULL, HEX);
+     if (cna > MAX_CNA) {
+-        return INVLID_CNA_MSG;
++        return INVALID_CNA_MSG;
+     }
+ 
+     ls_cmd.cna = (uint32_t)cna;
+@@ -142,11 +142,11 @@ static const char *parse_port(char *str)
+     uint32_t port;
+ 
+     if (parse_x32(str, &port) <= 0) {
+-        return INVLID_PORT_MSG;
++        return INVALID_PORT_MSG;
+     }
+ 
+     if (port > MAX_PORT) {
+-        return INVLID_PORT_MSG;
++        return INVALID_PORT_MSG;
+     }
+ 
+     ls_cmd.port = port;
+@@ -204,9 +204,9 @@ static int parse_slice_context(struct lsub_cmd_param *cmd, char *cfg_str)
+     if (save_str[0] == '\0') {
+         cfg_id[0] = 1;
+         if (strcasecmp(tmp_str, PORT_PREFIX_STRING) == 0) {
+-        cfg_id[PORT_CAP1_LINK] = 1;
+-        cfg_id[PORT_CAP2_LINK_LOG] = 1;
+-        cfg_id[PORT_CAP21_PORT_ERR_RECORD] = 1;
++            cfg_id[PORT_CAP1_LINK] = 1;
++            cfg_id[PORT_CAP2_LINK_LOG] = 1;
++            cfg_id[PORT_CAP21_PORT_ERR_RECORD] = 1;
+         }
+         return 0;
+     }
+@@ -387,7 +387,7 @@ static void show_hex_dump(uint32_t slice_addr)
+     data_len = CFG_SLICE_LEN;
+     ret_code = slice_read(cfg_info.uent, slice_addr, cfg_info.data_buf, &data_len);
+     if (ret_code) {
+-        printf("lsub error: failed to read slice\n");
++        fprintf(stderr, "lsub error: failed to read slice\n");
+         return;
+     }
+ 
+@@ -419,7 +419,7 @@ static void show_hex(struct ub_access *uacc)
+             if (cfg0_check_capid(&cfg_info, i)) {
+                 return show_hex_dump(CFG0_SLICE_ADDR(i));
+             } else {
+-                printf("Warning: Unsupported capability\n");
++                fprintf(stderr, "Warning: Unsupported capability\n");
+                 return;
+             }
+         }
+@@ -427,7 +427,7 @@ static void show_hex(struct ub_access *uacc)
+             if (cfg1_check_capid(&cfg_info, i)) {
+                 return show_hex_dump(CFG1_SLICE_ADDR(i));
+             } else {
+-                printf("Warning: Unsupported capability\n");
++                fprintf(stderr, "Warning: Unsupported capability\n");
+                 return;
+             }
+         }
+@@ -436,7 +436,7 @@ static void show_hex(struct ub_access *uacc)
+             if (port_check_capid(&cfg_info, i)) {
+                 return show_hex_dump(PORT_SLICE_ADDR(ls_cmd.port, i));
+             } else {
+-                printf("Warning: Unsupported capability\n");
++                fprintf(stderr, "Warning: Unsupported capability\n");
+                 return;
+             }
+         }
+@@ -561,7 +561,7 @@ static const char *parse_businstance(char *str)
+ 
+     bi_eid = strtoul(str, NULL, HEX);
+     if ((bi_eid == 0) || (bi_eid > MAX_UENT_NUM)) {
+-        return INVLID_EID_MSG;
++        return INVALID_EID_MSG;
+     }
+ 
+     ls_cmd.bi_eid = (uint32_t)bi_eid;
+@@ -641,12 +641,12 @@ int main(int argc, char **argv)
+ 
+     uacc = ub_alloc_acc();
+     if (!uacc) {
+-        printf("uacc alloc failed.\n");
++        fprintf(stderr, "uacc alloc failed.\n");
+         return -ENOMEM;
+     }
+     ret = ub_init(uacc);
+     if (ret) {
+-        printf("uacc init failed, ret = %d.\n", ret);
++        fprintf(stderr, "uacc init failed, ret = %d.\n", ret);
+         goto err_ub_cleanup;
+     }
+ 
+@@ -680,7 +680,7 @@ int main(int argc, char **argv)
+ err_ub_cleanup:
+     ub_cleanup(uacc);
+ 
+-    /* Free all UB Bus Controller */
++    /* Free all UB Bus Controllers */
+     ub_free_ubc();
+ 
+     return ret;
+diff --git a/lsub/lsub.h b/lsub/lsub.h
+index 51f3427..79795af 100644
+--- a/lsub/lsub.h
++++ b/lsub/lsub.h
+@@ -111,7 +111,7 @@ struct ub_bus_controller {
+ #define CFG1_CLASS_CODE         (0x29 * CFG_DWORD_LEN)
+ #define CFG1_DEV_TOKEN_ID       (0x2D * CFG_DWORD_LEN)
+ #define CFG1_BUS_EN             (0x2E * CFG_DWORD_LEN)
+-#define CFG1_DEV_RS_ACESS_EN    (0x2F * CFG_DWORD_LEN)
++#define CFG1_DEV_RS_ACCESS_EN   (0x2F * CFG_DWORD_LEN)
+ #define CFG1_DECODER_CAP_ID     0x1
+ #define CFG1_JETTY_CAP_ID       0x2
+ #define CFG1_INT_TYPE1_CAP_ID   0x3
+@@ -123,7 +123,7 @@ struct ub_bus_controller {
+ #define PORT_BASIC_INFO         (0x9 * CFG_DWORD_LEN)
+ #define PORT_BASIC_NB_INFO      (0xA * CFG_DWORD_LEN)
+ #define PORT_BASIC_CNA          (0xF * CFG_DWORD_LEN)
+-#define PORT_BASIC_RST          (0x10 * CFG_DWORD_LEN) /* Rort Reset Attribute is WC */
++#define PORT_BASIC_RST          (0x10 * CFG_DWORD_LEN) /* Port Reset Attribute is WC */
+ 
+ enum {
+     PORT_CAP1_LINK = 1,
+@@ -163,15 +163,15 @@ enum {
+ #define CFG_EID_LEN             0x10
+ /* In compact domain, eid consists of a 108-bit domain ID and a 20-bit node ID. */
+ #define CFG_EID_NODE_ID         20
+-/* the CAP bitmap of CFG0\CFG1\PORT BASIC have 256 bits(=32B) */
++/* the CAP bitmap of CFG0\CFG1\PORT BASIC has 256 bits(=32B) */
+ #define CFG_CAP_BITMAP_LEN      0x20
+-/* the Supported Feature of CFG0_BASIC and CFG1_BASIC have 128 bits(=16B) */
++/* the Supported Feature of CFG0_BASIC and CFG1_BASIC has 128 bits(=16B) */
+ #define CFG_SUP_FEATURE_LEN     0x10
+ /* The size of SLICE is fixed to 1 KB except for RouteTable */
+ #define CFG_SLICE_LEN           1024
+ /* invalid CAP id */
+ #define CFG_INVALID_CAP_ID      256
+-/* invaild port number */
++/* invalid port number */
+ #define CFG_INVALID_PORT_NUM    0xFFFF
+ #define CFG_DISPLAY_BUF_LEN     4096
+ 
+@@ -293,7 +293,7 @@ enum {
+ #define CLASS_CODE_MASK 0xff
+ 
+ /**
+-  * Check whether the entity is UB Bus Controller.
++  * Check whether the entity is a UB Bus Controller.
+   */
+ static inline bool ub_is_ibus_controller(struct ub_entity *uent)
+ {
+@@ -404,7 +404,7 @@ int lsub_port_cap(struct ub_entity_cfg_info *info, uint32_t cap_id);
+ int port_check_capid(struct ub_entity_cfg_info *info, uint32_t cap_id);
+ void ub_set_ids_file_path(struct ub_access *uacc, char *name, int to_be_freed);
+ char *ub_lookup_name(struct ub_access *uacc, char *buf, size_t size,
+-                     uint32_t vendor_id, uint32_t device_id , uint32_t class_id);
++                     uint32_t vendor_id, uint32_t device_id, uint32_t class_id);
+ void show_route_tbl(struct ub_access *uacc, uint32_t uent_num, uint32_t cna);
+ 
+ /* common interfaces */
+diff --git a/lsub/port/cap1_link.c b/lsub/port/cap1_link.c
+index 83aabda..b3c5078 100644
+--- a/lsub/port/cap1_link.c
++++ b/lsub/port/cap1_link.c
+@@ -206,7 +206,7 @@ static void pl_cap(uint8_t *data)
+     pl_phy_cap1(data);
+     pl_phy_cap2(data);
+     pl_phy_cap3(data);
+-    /* PHY Link Capactiy 4/5 is Resvered, Skip */
++    /* PHY Link Capability 4/5 is Reserved, skip */
+ }
+ 
+ static void pl_data_cfg(uint8_t *data)
+@@ -498,10 +498,10 @@ static void pl_config(uint8_t *data)
+     pl_data_retry(data);
+     pl_data_perf_optim(data);
+     pl_data_markerr(data);
+-    /* Skip Data Link Control Reserve 1 */
++    /* Skip Data Link Control Reserved 1 */
+     pl_phy_ctrl1(data);
+     pl_phy_ctrl2(data);
+-    /* PHY Link Control 3 4 is Resvered, Skip */
++    /* PHY Link Control 3 4 is Reserved, skip */
+     pl_phy_ctrl5(data);
+     pl_phy_ctrl6_7(data);
+     pl_phy_ctrl8_9(data);
+@@ -692,7 +692,7 @@ static void pl_status(uint8_t *data)
+ {
+     pl_data_status(data);
+     pl_dlsms(data);
+-    /* Skip Data Link status Reserve 1/2/3/4 */
++    /* Skip Data Link status Reserved 1/2/3/4 */
+     pl_port_status(data);
+     pl_phy_status1(data);
+     pl_phy_status2(data);
+@@ -719,4 +719,4 @@ void port_cap1_link(uint8_t *data, uint32_t data_len)
+     pl_cap(data);
+     pl_config(data);
+     pl_status(data);
+-}
+\ No newline at end of file
++}
+diff --git a/lsub/port/cap21_port_err_record.c b/lsub/port/cap21_port_err_record.c
+index 4255965..58ae088 100644
+--- a/lsub/port/cap21_port_err_record.c
++++ b/lsub/port/cap21_port_err_record.c
+@@ -190,7 +190,7 @@ void port_cap21_err_record(uint8_t *data, uint32_t data_len)
+             slice_ver, slice_size, port_cap_id);
+     printf("%s", port_info->display_buf);
+ 
+-     if (data_len < PORT_ERR_RECORD_LEN) {
++    if (data_len < PORT_ERR_RECORD_LEN) {
+         return;
+     }
+ 
+diff --git a/lsub/topo.c b/lsub/topo.c
+index f3d6fdf..ddbf8ba 100644
+--- a/lsub/topo.c
++++ b/lsub/topo.c
+@@ -32,7 +32,7 @@ static uint8_t preset_sub_uent(struct ub_entity *uent)
+     int ret = 0;
+ 
+     if (!uent || uent->par_uent_num == UB_INIT_PARENT ||
+-        uent->scaned) {
++        uent->scanned) {
+         return 0;
+     }
+ 
+@@ -48,7 +48,7 @@ static uint8_t preset_sub_uent(struct ub_entity *uent)
+         }
+         port = port->next;
+     }
+-    uent->scaned = 1;
++    uent->scanned = 1;
+ 
+     return (uint8_t)ret;
+ }
+@@ -73,7 +73,7 @@ static int grow_topo(void)
+     struct ub_port;
+     int ret;
+ 
+-    /* Build list of UB Bus Controller */
++    /* Build list of UB Bus Controllers */
+     last_ubc = &g_ubc.chain;
+     for (dev = g_first_dev; dev; dev = dev->next) {
+         if (ub_is_ibus_controller(dev->uent)) {
+@@ -182,7 +182,7 @@ static void show_src_port(struct ub_entity *uent, char *line, char *p)
+         return;
+     }
+ 
+-    /* Multi ports in uent */
++    /* Multiple ports in uent */
+     while (port->next) {
+         p[0] = '+';
+         len = sprintf(p + 1, "-%03x-", port->port_num);
+@@ -220,7 +220,7 @@ static void show_topo_ubc(struct ub_bus_controller *ub_bus_controller, char *lin
+         return;
+     }
+ 
+-    /* Multi UB Bus Controller */
++    /* Multiple UB Bus Controllers */
+     while (ubc->chain) {
+         p[0] = '+';
+         if (!ubc->ubc_dev || !ubc->ubc_dev->uent) {
+diff --git a/setub/setub.c b/setub/setub.c
+index cc01b71..994b0ce 100644
+--- a/setub/setub.c
++++ b/setub/setub.c
+@@ -204,7 +204,7 @@ static int execute(struct ub_access *uacc, struct option *op)
+         }
+     }
+     if (!uent) {
+-        printf("Can not find uent: %05x\n", op->uent_num);
++        fprintf(stderr, "Can not find uent: %05x\n", op->uent_num);
+         return -EINVAL;
+     }
+ 
+@@ -317,24 +317,24 @@ static void ub_opt_bi(struct ub_bi_para *bi_para)
+ 
+     fd = open(UB_UNIFIED_BUS, O_RDWR);
+     if (fd < 0) {
+-        (void)printf("sysfs_instance_setup failed!\n");
++        (void)fprintf(stderr, "sysfs_instance_setup failed!\n");
+         return;
+     }
+ 
+     ret = ioctl(fd, UBUS_IOCTL_BUS_INSTANCE, &bi);
+     if (ret != 0) {
+-        (void)printf("ioctl failed, ret is %d\n", ret);
++        (void)fprintf(stderr, "ioctl failed, ret is %d\n", ret);
+         (void)close(fd);
+         return;
+     }
+ 
+     if (opt == UBUS_CMD_BI_CREATE) {
+-        (void)printf("create BI success, guid:0x%llx%016llx eid:0x%x\n",
++        (void)printf("create BI successfully, guid:0x%llx%016llx eid:0x%x\n",
+                       *((uint64_t *)&bi.create.guid[SIZE_8]),
+                       *((uint64_t *)&bi.create.guid[0]),
+                       bi.create.eid);
+     } else {
+-        (void)printf("%s BI success\n", arg[opt]);
++        (void)printf("%s BI successfully\n", arg[opt]);
+     }
+ 
+     (void)close(fd);
+@@ -425,8 +425,8 @@ static int parse_eid(char *c, uint32_t *eid)
+ static int parse_upi(char *c, uint16_t *upi)
+ {
+     if (parse_x16(c, upi) <= 0) {
+-            parse_err("Invalid upi value \"%s\"", c);
+-            return -EINVAL;
++        parse_err("Invalid upi value \"%s\"", c);
++        return -EINVAL;
+     }
+ 
+     (void)printf("parse upi: 0x%x\n", *upi);
+@@ -580,7 +580,7 @@ static int check_bi_ops_para(struct ub_bi_para *bi_para)
+         if ((bi_para->opt == UBUS_CMD_BI_BIND ||
+             bi_para->opt == UBUS_CMD_BI_UNBIND) &&
+             bi_para->d_guid.bits.type != UBUS_GUID_TYPE_IDEV) {
+-            parse_err("Cluster only support bind/unbind IDEV.\n");
++            parse_err("Cluster only supports bind/unbind IDEV.\n");
+             return -EINVAL;
+         }
+     }
+@@ -612,7 +612,7 @@ int main(int argc, char **argv)
+ 
+     ret = ub_scan_devices(uacc);
+     if (ret) {
+-        printf("scan devices failed, ret = %d.\n", ret);
++        fprintf(stderr, "scan devices failed, ret = %d.\n", ret);
+         goto err_ub_cleanup;
+     }
+ 
+-- 
+2.50.1 (Apple Git-155)
+
