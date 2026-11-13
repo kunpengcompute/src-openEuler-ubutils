@@ -1,0 +1,62 @@
+From 8d4666271f1468301988fdd5916a5c82d2dafa9c Mon Sep 17 00:00:00 2001
+From: Anzhe Li <lianzhe1@h-partners.com>
+Date: Mon, 24 Aug 2026 14:03:07 +0800
+Subject: [PATCH 2/2] ub:ubutils: Adding the device ID of the new chip version
+
+driver inclusion
+category: bugfix
+bugzilla: https://atomgit.com/openeuler/ubutils/issues/6
+CVE: NA
+
+-----------------------------------------------------------
+
+ubutils parses the device ID through ub.ids and converts it
+into the corresponding name of the device. Therefore,
+we update ub.ids to parse the device IDs of the new version
+of the chip.
+
+Signed-off-by: Anzhe Li <lianzhe1@h-partners.com>
+---
+ ub.ids | 19 +++++++++++++++++++
+ 1 file changed, 19 insertions(+)
+
+diff --git a/ub.ids b/ub.ids
+index 76aa615..9371bb2 100644
+--- a/ub.ids
++++ b/ub.ids
+@@ -16,6 +16,14 @@ cc08  Huawei Technologies Co., Ltd.
+ 	a005  PMU management ub entity
+ 	a006  PMU ub entity
+ 	a007  Master Ctrl entity
++	a00a  Bus controller
++	a00b  URMA management ub entity
++	a00c  URMA ub entity
++	a00d  CDMA management ub entity
++	a00e  CDMA ub entity
++	a00f  PMU management ub entity
++	a010  PMU ub entity
++	a011  Master Ctrl entity
+ 	d802  URMA management ub entity
+ 	d803  URMA ub entity
+ 	d804  CDMA management ub entity
+@@ -27,6 +35,17 @@ cc08  Huawei Technologies Co., Ltd.
+ 	d80a  Bus controller
+ 	d80b  URMA UBoE management ub entity
+ 	d80c  URMA UBoE ub entity
++	d812  URMA management ub entity
++	d813  URMA ub entity
++	d814  CDMA management ub entity
++	d815  CDMA ub entity
++	d816  PMU management ub entity
++	d817  PMU ub entity
++	d818  CCU management ub entity
++	d819  CCU ub entity
++	d81a  Bus controller
++	d81b  URMA UBoE management ub entity
++	d81c  URMA UBoE ub entity
+ 	8200  SP500U Family management ub entity
+ 	8201  SP500U Family ub entity
+ C 00  Bus controller
+-- 
+2.50.1 (Apple Git-155)
+
