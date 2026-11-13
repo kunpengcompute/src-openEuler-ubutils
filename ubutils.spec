@@ -1,13 +1,15 @@
 Summary: Implementation of ubutils
 Name: ubutils
 Version: 1.0.2
-Release: 6%{?dist}
+Release: 7%{?dist}
 License: MIT
 URL: https://gitee.com/openeuler/ubutils
 Source0: %{name}-%{version}.tar.gz
 
 Patch1: 0001-ub-ubutils-delete-mode-number-for-FEC.patch
 Patch2: 0002-ub-ubutils-bugfix-some-issues-for-ubutils.patch
+Patch3: 0003-ub-ubutils-Optimized-the-log-printing-and-spelling-o.patch
+Patch4: 0004-ub-ubutils-Adding-the-device-ID-of-the-new-chip-vers.patch
 
 BuildRequires: cmake
 BuildRequires: gcc-c++
@@ -58,6 +60,9 @@ install -m 644 lsub.8 setub.8 $RPM_BUILD_ROOT%{_prefix}/share/man/man8
 rm -rf %{buildroot}
 
 %changelog
+* Fri Nov 13 2026 zhao-lichang <zhaolichang@huawei.com> - 1.0.2-7
+- [Type] sync
+- [DESC] update to 0930
 * Wed Jul 15 2026 qiushengming <846759657@qq.com> - 1.0.2-6
 - [Type] sync
 - [DESC] Package init
